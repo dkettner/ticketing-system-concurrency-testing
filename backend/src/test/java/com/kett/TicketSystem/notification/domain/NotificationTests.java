@@ -213,58 +213,64 @@ public class NotificationTests {
         assertEquals(notification3, notificationRepository.findById(notification3.getId()).get());
 
         // with id, compare with different object
-        assertNotEquals(notification0, notificationRepository.findById(notification1.getId()).get());
-        assertNotEquals(notification1, notificationRepository.findById(notification2.getId()).get());
-        assertNotEquals(notification2, notificationRepository.findById(notification3.getId()).get());
-        assertNotEquals(notification3, notificationRepository.findById(notification0.getId()).get());
+        assertNotEquals(notification0, notification1);
+        assertNotEquals(notification1, notification2);
+        assertNotEquals(notification2, notification3);
+        assertNotEquals(notification3, notification0);
 
         // with id, compare with different object with same parameters
-        assertNotEquals(notification0, notificationRepository.findById(notification0Copy.getId()).get());
-        assertNotEquals(notification1, notificationRepository.findById(notification1Copy.getId()).get());
-        assertNotEquals(notification2, notificationRepository.findById(notification2Copy.getId()).get());
-        assertNotEquals(notification3, notificationRepository.findById(notification3Copy.getId()).get());
+        assertNotEquals(notification0, notification0Copy);
+        assertNotEquals(notification1, notification1Copy);
+        assertNotEquals(notification2, notification2Copy);
+        assertNotEquals(notification3, notification3Copy);
     }
 
     @Test
     public void checkHashCode() {
-        // without id
-        assertEquals(notification0.hashCode(), new Notification(uuid0, message0).hashCode());
-        assertEquals(notification1.hashCode(), new Notification(uuid1, message1).hashCode());
-        assertEquals(notification2.hashCode(), new Notification(uuid2, message2).hashCode());
-        assertEquals(notification3.hashCode(), new Notification(uuid3, message3).hashCode());
+        Notification notification0Copy = new Notification(uuid0, message0);
+        Notification notification1Copy = new Notification(uuid1, message1);
+        Notification notification2Copy = new Notification(uuid2, message2);
+        Notification notification3Copy = new Notification(uuid3, message3);
+
+        // without id, same parameters
+        assertEquals(notification0.hashCode(), notification0Copy.hashCode());
+        assertEquals(notification1.hashCode(), notification1Copy.hashCode());
+        assertEquals(notification2.hashCode(), notification2Copy.hashCode());
+        assertEquals(notification3.hashCode(), notification3Copy.hashCode());
+
+        // without id, different parameters
+        assertNotEquals(notification0.hashCode(), notification1.hashCode());
+        assertNotEquals(notification1.hashCode(), notification2.hashCode());
+        assertNotEquals(notification2.hashCode(), notification3.hashCode());
+        assertNotEquals(notification3.hashCode(), notification0.hashCode());
 
         // add id
         notificationRepository.save(notification0);
         notificationRepository.save(notification1);
         notificationRepository.save(notification2);
         notificationRepository.save(notification3);
+        notificationRepository.save(notification0Copy);
+        notificationRepository.save(notification1Copy);
+        notificationRepository.save(notification2Copy);
+        notificationRepository.save(notification3Copy);
 
-        // with id
+        // with id, compare with itself
         assertEquals(notification0.hashCode(), notificationRepository.findById(notification0.getId()).get().hashCode());
         assertEquals(notification1.hashCode(), notificationRepository.findById(notification1.getId()).get().hashCode());
         assertEquals(notification2.hashCode(), notificationRepository.findById(notification2.getId()).get().hashCode());
         assertEquals(notification3.hashCode(), notificationRepository.findById(notification3.getId()).get().hashCode());
-    }
 
-    @Test
-    public void checkNotSameHashCode() {
-        // without id
-        assertNotEquals(notification0.hashCode(), new Notification(uuid1, message1).hashCode());
-        assertNotEquals(notification1.hashCode(), new Notification(uuid2, message2).hashCode());
-        assertNotEquals(notification2.hashCode(), new Notification(uuid3, message3).hashCode());
-        assertNotEquals(notification3.hashCode(), new Notification(uuid0, message0).hashCode());
+        // with id, compare with different object
+        assertNotEquals(notification0.hashCode(), notification1.hashCode());
+        assertNotEquals(notification1.hashCode(), notification2.hashCode());
+        assertNotEquals(notification2.hashCode(), notification3.hashCode());
+        assertNotEquals(notification3.hashCode(), notification0.hashCode());
 
-        // add id
-        notificationRepository.save(notification0);
-        notificationRepository.save(notification1);
-        notificationRepository.save(notification2);
-        notificationRepository.save(notification3);
-
-        // with id
-        assertNotEquals(notification0.hashCode(), notificationRepository.findById(notification1.getId()).get().hashCode());
-        assertNotEquals(notification1.hashCode(), notificationRepository.findById(notification2.getId()).get().hashCode());
-        assertNotEquals(notification2.hashCode(), notificationRepository.findById(notification3.getId()).get().hashCode());
-        assertNotEquals(notification3.hashCode(), notificationRepository.findById(notification0.getId()).get().hashCode());
+        // with id, compare with different object with same parameters
+        assertNotEquals(notification0.hashCode(), notification0Copy.hashCode());
+        assertNotEquals(notification1.hashCode(), notification1Copy.hashCode());
+        assertNotEquals(notification2.hashCode(), notification2Copy.hashCode());
+        assertNotEquals(notification3.hashCode(), notification3Copy.hashCode());
     }
 
     // testing the protected methods
