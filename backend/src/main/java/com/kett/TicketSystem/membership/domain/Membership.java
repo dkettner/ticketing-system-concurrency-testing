@@ -3,9 +3,11 @@ package com.kett.TicketSystem.membership.domain;
 import com.kett.TicketSystem.common.exceptions.IllegalStateUpdateException;
 import com.kett.TicketSystem.membership.domain.exceptions.MembershipException;
 import lombok.*;
+import org.hibernate.proxy.HibernateProxy;
 import org.springframework.security.core.GrantedAuthority;
 
 import javax.persistence.*;
+import java.util.Objects;
 import java.util.UUID;
 
 @Entity
@@ -43,12 +45,18 @@ public class Membership implements GrantedAuthority {
         if (projectId == null) {
             throw new MembershipException("projectId cannot be null");
         }
+        if (this.getProjectId() != null && !this.getProjectId().equals(projectId)) {
+            throw new IllegalStateUpdateException("projectId cannot be changed");
+        }
         this.projectId = projectId;
     }
 
     protected void setUserId(UUID userId) {
         if (userId == null) {
             throw new MembershipException("userId cannot be null");
+        }
+        if (this.getUserId() != null && !this.getUserId().equals(userId)) {
+            throw new IllegalStateUpdateException("userId cannot be changed");
         }
         this.userId = userId;
     }
@@ -88,6 +96,37 @@ public class Membership implements GrantedAuthority {
                 "PROJECT_" +
                 this.role.toString() + "_" +
                 this.projectId.toString();
+    }
+
+    @Override
+    public final boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null) return false;
+        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) return false;
+        Membership that = (Membership) o;
+        if (getId() != null && that.getId() != null) {
+            // Both IDs are not null, compare them
+            return Objects.equals(getId(), that.getId());
+        } else {
+            // One or both IDs are null, compare projectId, userId, role, and state
+            return Objects.equals(getProjectId(), that.getProjectId())
+                    && Objects.equals(getUserId(), that.getUserId())
+                    && Objects.equals(getRole(), that.getRole())
+                    && Objects.equals(getState(), that.getState());
+        }
+    }
+
+    @Override
+    public int hashCode() {
+        if (getId() != null) {
+            // If ID is not null, use it for hash code
+            return Objects.hash(getId());
+        } else {
+            // If ID is null, use projectId, userId, role, and state for hash code
+            return Objects.hash(getProjectId(), getUserId(), getRole(), getState());
+        }
     }
 
     public Membership(UUID projectId, UUID userId, Role role) {
