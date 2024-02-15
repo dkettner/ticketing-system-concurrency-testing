@@ -138,22 +138,127 @@ public class NotificationTests {
     public void checkSetIsReadWithValidParameters() {
         notification0.setIsRead(true);
         assertTrue(notification0.getIsRead());
+
+        notification1.setIsRead(true);
+        assertTrue(notification1.getIsRead());
+
+        notification2.setIsRead(true);
+        assertTrue(notification2.getIsRead());
+
+        notification3.setIsRead(true);
+        assertTrue(notification3.getIsRead());
     }
 
     @Test
     public void checkSetIsReadWithNullParameters() {
         assertThrows(NotificationException.class, () -> notification0.setIsRead(null));
+        assertThrows(NotificationException.class, () -> notification1.setIsRead(null));
+        assertThrows(NotificationException.class, () -> notification2.setIsRead(null));
+        assertThrows(NotificationException.class, () -> notification3.setIsRead(null));
     }
 
     @Test
     public void checkSetIsReadWhenNotificationIsAlreadyRead() {
         notification0.setIsRead(true);
+        notification1.setIsRead(true);
+        notification2.setIsRead(true);
+        notification3.setIsRead(true);
 
         // set true again
         assertThrows(IllegalStateUpdateException.class, () -> notification0.setIsRead(true));
+        assertThrows(IllegalStateUpdateException.class, () -> notification1.setIsRead(true));
+        assertThrows(IllegalStateUpdateException.class, () -> notification2.setIsRead(true));
+        assertThrows(IllegalStateUpdateException.class, () -> notification3.setIsRead(true));
 
         // set false when is already true
         assertThrows(IllegalStateUpdateException.class, () -> notification0.setIsRead(false));
+        assertThrows(IllegalStateUpdateException.class, () -> notification1.setIsRead(false));
+        assertThrows(IllegalStateUpdateException.class, () -> notification2.setIsRead(false));
+        assertThrows(IllegalStateUpdateException.class, () -> notification3.setIsRead(false));
+    }
+
+    @Test
+    public void checkEquals() {
+        // without id
+        assertEquals(notification0, new Notification(uuid0, message0));
+        assertEquals(notification1, new Notification(uuid1, message1));
+        assertEquals(notification2, new Notification(uuid2, message2));
+        assertEquals(notification3, new Notification(uuid3, message3));
+
+        // add id
+        notificationRepository.save(notification0);
+        notificationRepository.save(notification1);
+        notificationRepository.save(notification2);
+        notificationRepository.save(notification3);
+
+        // with id
+        assertEquals(notification0, notificationRepository.findById(notification0.getId()).get());
+        assertEquals(notification1, notificationRepository.findById(notification1.getId()).get());
+        assertEquals(notification2, notificationRepository.findById(notification2.getId()).get());
+        assertEquals(notification3, notificationRepository.findById(notification3.getId()).get());
+    }
+
+    @Test
+    public void checkNotEquals() {
+        // without id
+        assertNotEquals(notification0, new Notification(uuid1, message1));
+        assertNotEquals(notification1, new Notification(uuid2, message2));
+        assertNotEquals(notification2, new Notification(uuid3, message3));
+        assertNotEquals(notification3, new Notification(uuid0, message0));
+
+        // add id
+        notificationRepository.save(notification0);
+        notificationRepository.save(notification1);
+        notificationRepository.save(notification2);
+        notificationRepository.save(notification3);
+
+        // with id
+        assertNotEquals(notification0, notificationRepository.findById(notification1.getId()).get());
+        assertNotEquals(notification1, notificationRepository.findById(notification2.getId()).get());
+        assertNotEquals(notification2, notificationRepository.findById(notification3.getId()).get());
+        assertNotEquals(notification3, notificationRepository.findById(notification0.getId()).get());
+    }
+
+    @Test
+    public void checkHashCode() {
+        // without id
+        assertEquals(notification0.hashCode(), new Notification(uuid0, message0).hashCode());
+        assertEquals(notification1.hashCode(), new Notification(uuid1, message1).hashCode());
+        assertEquals(notification2.hashCode(), new Notification(uuid2, message2).hashCode());
+        assertEquals(notification3.hashCode(), new Notification(uuid3, message3).hashCode());
+
+        // add id
+        notificationRepository.save(notification0);
+        notificationRepository.save(notification1);
+        notificationRepository.save(notification2);
+        notificationRepository.save(notification3);
+
+        // with id
+        assertEquals(notification0.hashCode(), notificationRepository.findById(notification0.getId()).get().hashCode());
+        assertEquals(notification1.hashCode(), notificationRepository.findById(notification1.getId()).get().hashCode());
+        assertEquals(notification2.hashCode(), notificationRepository.findById(notification2.getId()).get().hashCode());
+        assertEquals(notification3.hashCode(), notificationRepository.findById(notification3.getId()).get().hashCode());
+    }
+
+    @Test
+    public void checkNotSameHashCode() {
+        // without id
+        assertNotEquals(notification0.hashCode(), new Notification(uuid1, message1).hashCode());
+        assertNotEquals(notification1.hashCode(), new Notification(uuid2, message2).hashCode());
+        assertNotEquals(notification2.hashCode(), new Notification(uuid3, message3).hashCode());
+        assertNotEquals(notification3.hashCode(), new Notification(uuid0, message0).hashCode());
+
+        // add id
+        notificationRepository.save(notification0);
+        notificationRepository.save(notification1);
+        notificationRepository.save(notification2);
+        notificationRepository.save(notification3);
+
+        // with id
+        assertNotEquals(notification0.hashCode(), notificationRepository.findById(notification1.getId()).get().hashCode());
+        assertNotEquals(notification1.hashCode(), notificationRepository.findById(notification2.getId()).get().hashCode());
+        assertNotEquals(notification2.hashCode(), notificationRepository.findById(notification3.getId()).get().hashCode());
+        assertNotEquals(notification3.hashCode(), notificationRepository.findById(notification0.getId()).get().hashCode());
     }
 
     // testing the protected methods
