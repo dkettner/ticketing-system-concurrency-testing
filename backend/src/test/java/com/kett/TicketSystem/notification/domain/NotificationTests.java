@@ -179,28 +179,18 @@ public class NotificationTests {
 
     @Test
     public void checkEquals() {
-        // without id
+        Notification notification0Copy = new Notification(uuid0, message0);
+        Notification notification1Copy = new Notification(uuid1, message1);
+        Notification notification2Copy = new Notification(uuid2, message2);
+        Notification notification3Copy = new Notification(uuid3, message3);
+
+        // without id, same parameters
         assertEquals(notification0, new Notification(uuid0, message0));
         assertEquals(notification1, new Notification(uuid1, message1));
         assertEquals(notification2, new Notification(uuid2, message2));
         assertEquals(notification3, new Notification(uuid3, message3));
 
-        // add id
-        notificationRepository.save(notification0);
-        notificationRepository.save(notification1);
-        notificationRepository.save(notification2);
-        notificationRepository.save(notification3);
-
-        // with id
-        assertEquals(notification0, notificationRepository.findById(notification0.getId()).get());
-        assertEquals(notification1, notificationRepository.findById(notification1.getId()).get());
-        assertEquals(notification2, notificationRepository.findById(notification2.getId()).get());
-        assertEquals(notification3, notificationRepository.findById(notification3.getId()).get());
-    }
-
-    @Test
-    public void checkNotEquals() {
-        // without id
+        // without id, different parameters
         assertNotEquals(notification0, new Notification(uuid1, message1));
         assertNotEquals(notification1, new Notification(uuid2, message2));
         assertNotEquals(notification2, new Notification(uuid3, message3));
@@ -211,12 +201,28 @@ public class NotificationTests {
         notificationRepository.save(notification1);
         notificationRepository.save(notification2);
         notificationRepository.save(notification3);
+        notificationRepository.save(notification0Copy);
+        notificationRepository.save(notification1Copy);
+        notificationRepository.save(notification2Copy);
+        notificationRepository.save(notification3Copy);
 
-        // with id
+        // with id, compare with itself
+        assertEquals(notification0, notificationRepository.findById(notification0.getId()).get());
+        assertEquals(notification1, notificationRepository.findById(notification1.getId()).get());
+        assertEquals(notification2, notificationRepository.findById(notification2.getId()).get());
+        assertEquals(notification3, notificationRepository.findById(notification3.getId()).get());
+
+        // with id, compare with different object
         assertNotEquals(notification0, notificationRepository.findById(notification1.getId()).get());
         assertNotEquals(notification1, notificationRepository.findById(notification2.getId()).get());
         assertNotEquals(notification2, notificationRepository.findById(notification3.getId()).get());
         assertNotEquals(notification3, notificationRepository.findById(notification0.getId()).get());
+
+        // with id, compare with different object with same parameters
+        assertNotEquals(notification0, notificationRepository.findById(notification0Copy.getId()).get());
+        assertNotEquals(notification1, notificationRepository.findById(notification1Copy.getId()).get());
+        assertNotEquals(notification2, notificationRepository.findById(notification2Copy.getId()).get());
+        assertNotEquals(notification3, notificationRepository.findById(notification3Copy.getId()).get());
     }
 
     @Test
