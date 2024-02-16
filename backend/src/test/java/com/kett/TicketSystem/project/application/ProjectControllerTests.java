@@ -13,6 +13,7 @@ import com.kett.TicketSystem.project.domain.events.DefaultProjectCreatedEvent;
 import com.kett.TicketSystem.project.domain.events.ProjectCreatedEvent;
 import com.kett.TicketSystem.project.domain.events.ProjectDeletedEvent;
 import com.kett.TicketSystem.project.repository.ProjectRepository;
+import com.kett.TicketSystem.project.repository.UserDataOfProjectRepository;
 import com.kett.TicketSystem.user.domain.events.UserCreatedEvent;
 import com.kett.TicketSystem.user.repository.UserRepository;
 import com.kett.TicketSystem.util.EventCatcher;
@@ -53,6 +54,7 @@ public class ProjectControllerTests {
     private final ProjectDomainService projectDomainService;
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
+    private final UserDataOfProjectRepository userDataOfProjectRepository;
     private final RestRequestHelper restMinion;
 
     private UUID userId;
@@ -77,7 +79,8 @@ public class ProjectControllerTests {
             ApplicationEventPublisher eventPublisher,
             ProjectDomainService projectDomainService,
             ProjectRepository projectRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            UserDataOfProjectRepository userDataOfProjectRepository
     ) {
         this.mockMvc = mockMvc;
         this.objectMapper = objectMapper;
@@ -86,6 +89,7 @@ public class ProjectControllerTests {
         this.projectDomainService = projectDomainService;
         this.projectRepository = projectRepository;
         this.userRepository = userRepository;
+        this.userDataOfProjectRepository = userDataOfProjectRepository;
         this.restMinion = new RestRequestHelper(this.mockMvc, this.objectMapper);
     }
 
@@ -123,6 +127,7 @@ public class ProjectControllerTests {
 
         projectRepository.deleteAll();
         userRepository.deleteAll();
+        userDataOfProjectRepository.deleteAll();
     }
 
     @Test

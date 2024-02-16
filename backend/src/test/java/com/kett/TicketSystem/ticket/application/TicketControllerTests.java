@@ -7,6 +7,7 @@ import com.kett.TicketSystem.membership.domain.State;
 import com.kett.TicketSystem.membership.repository.MembershipRepository;
 import com.kett.TicketSystem.phase.repository.PhaseRepository;
 import com.kett.TicketSystem.project.repository.ProjectRepository;
+import com.kett.TicketSystem.project.repository.UserDataOfProjectRepository;
 import com.kett.TicketSystem.ticket.application.dto.TicketPatchDto;
 import com.kett.TicketSystem.ticket.application.dto.TicketPostDto;
 import com.kett.TicketSystem.ticket.domain.Ticket;
@@ -60,6 +61,7 @@ public class TicketControllerTests {
     private final TicketDomainService ticketDomainService;
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
+    private final UserDataOfProjectRepository userDataOfProjectRepository;
     private final ProjectRepository projectRepository;
     private final MembershipRepository membershipRepository;
     private final PhaseRepository phaseRepository;
@@ -99,6 +101,7 @@ public class TicketControllerTests {
             TicketDomainService ticketDomainService,
             TicketRepository ticketRepository,
             UserRepository userRepository,
+            UserDataOfProjectRepository userDataOfProjectRepository,
             ProjectRepository projectRepository,
             MembershipRepository membershipRepository,
             PhaseRepository phaseRepository
@@ -112,6 +115,7 @@ public class TicketControllerTests {
         this.ticketDomainService = ticketDomainService;
         this.ticketRepository = ticketRepository;
         this.userRepository = userRepository;
+        this.userDataOfProjectRepository = userDataOfProjectRepository;
         this.membershipRepository = membershipRepository;
         this.phaseRepository = phaseRepository;
     }
@@ -177,6 +181,7 @@ public class TicketControllerTests {
 
         ticketRepository.deleteAll();
         userRepository.deleteAll();
+        userDataOfProjectRepository.deleteAll();
         phaseRepository.deleteAll();
         projectRepository.deleteAll();
         membershipRepository.deleteAll();
