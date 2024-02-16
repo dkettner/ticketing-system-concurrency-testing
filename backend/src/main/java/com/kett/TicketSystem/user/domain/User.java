@@ -3,8 +3,10 @@ package com.kett.TicketSystem.user.domain;
 import com.kett.TicketSystem.common.domainprimitives.EmailAddress;
 import com.kett.TicketSystem.user.domain.exceptions.UserException;
 import lombok.*;
+import org.hibernate.proxy.HibernateProxy;
 
 import javax.persistence.*;
+import java.util.Objects;
 import java.util.UUID;
 
 @Entity
@@ -50,6 +52,34 @@ public class User {
         }
 
         this.password = password;
+    }
+
+    @Override
+    public final boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null) return false;
+        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) return false;
+        User that = (User) o;
+        if (getId() != null && that.getId() != null) {
+            // Both IDs are not null, compare them
+            return Objects.equals(getId(), that.getId());
+        } else {
+            // One or both IDs are null, compare email
+            return Objects.equals(getEmail(), that.getEmail());
+        }
+    }
+
+    @Override
+    public int hashCode() {
+        if (getId() != null) {
+            // If ID is not null, use it for hash code
+            return Objects.hash(getId());
+        } else {
+            // If ID is null, use email for hash code
+            return Objects.hash(getEmail());
+        }
     }
 
     public User(String name, EmailAddress email, String password) {
