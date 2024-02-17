@@ -3,8 +3,10 @@ package com.kett.TicketSystem.phase.domain;
 import com.kett.TicketSystem.phase.domain.exceptions.PhaseException;
 import com.kett.TicketSystem.common.exceptions.UnrelatedPhaseException;
 import lombok.*;
+import org.hibernate.proxy.HibernateProxy;
 
 import javax.persistence.*;
+import java.util.Objects;
 import java.util.UUID;
 
 @Entity
@@ -95,6 +97,51 @@ public class Phase {
 
     public Boolean isLast() {
         return nextPhase == null;
+    }
+
+    @Override
+    public final boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null) return false;
+        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) return false;
+        Phase that = (Phase) o;
+        if (getId() != null && that.getId() != null) {
+            // Both IDs are not null, compare them
+            return Objects.equals(getId(), that.getId());
+        } else {
+            // One or both IDs are null, compare name and other relevant fields
+
+            // previousPhase and nextPhase are nullable
+            // setting the IDs to null avoids NullPointerExceptions and prevents infinite recursion
+            UUID thisPreviousPhaseId = this.getPreviousPhase() == null ? null : this.getPreviousPhase().getId();
+            UUID thisNextPhaseId = this.getNextPhase() == null ? null : this.getNextPhase().getId();
+            UUID thatPreviousPhaseId = that.getPreviousPhase() == null ? null : that.getPreviousPhase().getId();
+            UUID thatNextPhaseId = that.getNextPhase() == null ? null : that.getNextPhase().getId();
+
+            return Objects.equals(getName(), that.getName())
+                    && Objects.equals(thisPreviousPhaseId, thatPreviousPhaseId)
+                    && Objects.equals(thisNextPhaseId, thatNextPhaseId)
+                    && Objects.equals(getTicketCount(), that.getTicketCount());
+        }
+    }
+
+    @Override
+    public int hashCode() {
+        if (getId() != null) {
+            // If ID is not null, use it for hash code
+            return Objects.hash(getId());
+        } else {
+            // If ID is null, use name and other relevant fields for hash code
+
+            // previousPhase and nextPhase are nullable
+            // setting the IDs to null avoids NullPointerExceptions
+            UUID thisPreviousPhaseId = this.getPreviousPhase() == null ? null : this.getPreviousPhase().getId();
+            UUID thisNextPhaseId = this.getNextPhase() == null ? null : this.getNextPhase().getId();
+
+            return Objects.hash(getName(), thisPreviousPhaseId, thisNextPhaseId, getTicketCount());
+        }
     }
 
     public Phase(UUID projectId, String name, Phase previousPhase, Phase nextPhase) {
