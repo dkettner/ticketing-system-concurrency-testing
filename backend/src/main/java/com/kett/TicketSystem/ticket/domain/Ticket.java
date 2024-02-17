@@ -3,11 +3,13 @@ package com.kett.TicketSystem.ticket.domain;
 import com.kett.TicketSystem.ticket.domain.exceptions.TicketException;
 import lombok.*;
 import org.hibernate.annotations.Type;
+import org.hibernate.proxy.HibernateProxy;
 
 import javax.persistence.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Entity
@@ -30,7 +32,7 @@ public class Ticket {
 
     @Getter
     @Setter(AccessLevel.PROTECTED)
-    private LocalDateTime creationTime;
+    private LocalDateTime creationTime; // make creationTime final?
 
     @Getter
     private LocalDateTime dueTime;
@@ -84,6 +86,40 @@ public class Ticket {
 
     public Boolean isAssignee(UUID assigneeId) {
         return this.assigneeIds.contains(assigneeId);
+    }
+
+    @Override
+    public final boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null) return false;
+        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) return false;
+        Ticket that = (Ticket) o;
+        if (getId() != null && that.getId() != null) {
+            // Both IDs are not null, compare them
+            return Objects.equals(getId(), that.getId());
+        } else {
+            // One or both IDs are null, compare all other fields
+            return Objects.equals(getTitle(), that.getTitle())
+                    && Objects.equals(getDescription(), that.getDescription())
+                    && Objects.equals(getCreationTime(), that.getCreationTime())
+                    && Objects.equals(getDueTime(), that.getDueTime())
+                    && Objects.equals(getProjectId(), that.getProjectId())
+                    && Objects.equals(getPhaseId(), that.getPhaseId())
+                    && Objects.equals(getAssigneeIds(), that.getAssigneeIds());
+        }
+    }
+
+    @Override
+    public int hashCode() {
+        if (getId() != null) {
+            // If ID is not null, use it for hash code
+            return Objects.hash(getId());
+        } else {
+            // If ID is null, use all other fields for hash code
+            return Objects.hash(getTitle(), getDescription(), getCreationTime(), getDueTime(), getProjectId(), getPhaseId(), getAssigneeIds());
+        }
     }
 
     public Ticket(String title, String description, LocalDateTime dueTime, UUID projectId, UUID phaseId, List<UUID> assigneeIds) {
