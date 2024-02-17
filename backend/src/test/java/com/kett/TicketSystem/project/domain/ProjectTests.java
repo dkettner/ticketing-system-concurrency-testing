@@ -10,6 +10,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.time.LocalDateTime;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
@@ -132,96 +134,112 @@ public class ProjectTests {
 
     @Test
     public void checkEquals() {
-        // without id
-        assertEquals(project0, project0);
-        assertEquals(project1, project1);
-        assertEquals(project2, project2);
-        assertEquals(project3, project3);
-        assertEquals(emptyDescriptionProject, emptyDescriptionProject);
-        assertEquals(nullDescriptionProject, nullDescriptionProject);
-
-        // add id
-        projectRepository.save(project0);
-        projectRepository.save(project1);
-        projectRepository.save(project2);
-        projectRepository.save(project3);
-        projectRepository.save(emptyDescriptionProject);
-        projectRepository.save(nullDescriptionProject);
-
-        // with id
-        assertEquals(project0, project0);
-        assertEquals(project1, project1);
-        assertEquals(project2, project2);
-        assertEquals(project3, project3);
-        assertEquals(emptyDescriptionProject, emptyDescriptionProject);
-        assertEquals(nullDescriptionProject, nullDescriptionProject);
-    }
-
-    @Test
-    public void checkNotEquals() {
         Project project0Copy = new Project(validName0, description0);
         Project project1Copy = new Project(validName1, description1);
-        Project project2Copy = new Project(validName2, description2);
-        Project project3Copy = new Project(validName3, description3);
         Project emptyDescriptionProjectCopy = new Project(validName0, emptyDescription);
         Project nullDescriptionProjectCopy = new Project(validName1, nullDescription);
 
-        // without id
-        assertNotEquals(project0, project0Copy);
-        assertNotEquals(project1, project1Copy);
-        assertNotEquals(project2, project2Copy);
-        assertNotEquals(project3, project3Copy);
+        // only possible in tests because creationTime is private and should not be settable
+        project0Copy.setCreationTime(project0.getCreationTime());
+        project1Copy.setCreationTime(project1.getCreationTime());
+        emptyDescriptionProjectCopy.setCreationTime(emptyDescriptionProject.getCreationTime());
+        nullDescriptionProjectCopy.setCreationTime(nullDescriptionProject.getCreationTime());
 
+        // without id, same parameters
+        assertEquals(project0, project0Copy);
+        assertEquals(project1, project1Copy);
+        assertEquals(emptyDescriptionProject, emptyDescriptionProjectCopy);
+        assertEquals(nullDescriptionProject, nullDescriptionProjectCopy);
+
+        // without id, different parameters
         assertNotEquals(project0, project1);
-        assertNotEquals(project1, project2);
-        assertNotEquals(project2, project3);
-        assertNotEquals(project3, project0);
-
-        assertNotEquals(emptyDescriptionProject, emptyDescriptionProjectCopy);
-        assertNotEquals(nullDescriptionProject, nullDescriptionProjectCopy);
-
-        assertNotEquals(emptyDescriptionProject, project0);
-        assertNotEquals(nullDescriptionProject, project1);
-        assertNotEquals(emptyDescriptionProject, project2);
-        assertNotEquals(nullDescriptionProject, project3);
-
+        assertNotEquals(project1, emptyDescriptionProject);
+        assertNotEquals(project2, nullDescriptionProject);
+        assertNotEquals(emptyDescriptionProject, nullDescriptionProject);
 
         // add id
         projectRepository.save(project0);
         projectRepository.save(project1);
-        projectRepository.save(project2);
-        projectRepository.save(project3);
-
         projectRepository.save(emptyDescriptionProject);
         projectRepository.save(nullDescriptionProject);
 
         projectRepository.save(project0Copy);
         projectRepository.save(project1Copy);
-        projectRepository.save(project2Copy);
-        projectRepository.save(project3Copy);
-
         projectRepository.save(emptyDescriptionProjectCopy);
         projectRepository.save(nullDescriptionProjectCopy);
 
-        // with id
+        // with id, compare with itself
+        assertEquals(project0, projectRepository.findById(project0.getId()).get());
+        assertEquals(project1, projectRepository.findById(project1.getId()).get());
+        assertEquals(emptyDescriptionProject, projectRepository.findById(emptyDescriptionProject.getId()).get());
+        assertEquals(nullDescriptionProject, projectRepository.findById(nullDescriptionProject.getId()).get());
+
+        // with id, compare with different object
+        assertNotEquals(project0, project1);
+        assertNotEquals(project1, emptyDescriptionProject);
+        assertNotEquals(project2, nullDescriptionProject);
+        assertNotEquals(emptyDescriptionProject, nullDescriptionProject);
+
+        // with id, compare with different object with same parameters
         assertNotEquals(project0, project0Copy);
         assertNotEquals(project1, project1Copy);
-        assertNotEquals(project2, project2Copy);
-        assertNotEquals(project3, project3Copy);
-
-        assertNotEquals(project0, project1);
-        assertNotEquals(project1, project2);
-        assertNotEquals(project2, project3);
-        assertNotEquals(project3, project0);
-
         assertNotEquals(emptyDescriptionProject, emptyDescriptionProjectCopy);
         assertNotEquals(nullDescriptionProject, nullDescriptionProjectCopy);
+    }
 
-        assertNotEquals(emptyDescriptionProject, nullDescriptionProject);
-        assertNotEquals(emptyDescriptionProject, project0);
-        assertNotEquals(nullDescriptionProject, project1);
-        assertNotEquals(emptyDescriptionProject, project2);
-        assertNotEquals(nullDescriptionProject, project3);
+    @Test
+    public void checkHashCode() {
+        Project project0Copy = new Project(project0.getName(), project0.getDescription());
+        Project project1Copy = new Project(project1.getName(), project1.getDescription());
+        Project emptyDescriptionProjectCopy = new Project(emptyDescriptionProject.getName(), emptyDescriptionProject.getDescription());
+        Project nullDescriptionProjectCopy = new Project(nullDescriptionProject.getName(), nullDescriptionProject.getDescription());
+
+        // only possible in tests because creationTime is private and should not be settable
+        project0Copy.setCreationTime(project0.getCreationTime());
+        project1Copy.setCreationTime(project1.getCreationTime());
+        emptyDescriptionProjectCopy.setCreationTime(emptyDescriptionProject.getCreationTime());
+        nullDescriptionProjectCopy.setCreationTime(nullDescriptionProject.getCreationTime());
+
+        // without id, same parameters
+        assertEquals(project0.hashCode(), project0Copy.hashCode());
+        assertEquals(project1.hashCode(), project1Copy.hashCode());
+        assertEquals(emptyDescriptionProject.hashCode(), emptyDescriptionProjectCopy.hashCode());
+        assertEquals(nullDescriptionProject.hashCode(), nullDescriptionProjectCopy.hashCode());
+
+        // without id, different parameters
+        assertNotEquals(project0.hashCode(), project1.hashCode());
+        assertNotEquals(project1.hashCode(), nullDescriptionProjectCopy.hashCode());
+        assertNotEquals(project2.hashCode(), emptyDescriptionProject.hashCode());
+        assertNotEquals(emptyDescriptionProject.hashCode(), nullDescriptionProject.hashCode());
+
+        // add id
+        projectRepository.save(project0);
+        projectRepository.save(project1);
+        projectRepository.save(emptyDescriptionProject);
+        projectRepository.save(nullDescriptionProject);
+
+        projectRepository.save(project0Copy);
+        projectRepository.save(project1Copy);
+        projectRepository.save(emptyDescriptionProjectCopy);
+        projectRepository.save(nullDescriptionProjectCopy);
+
+        // with id, compare with itself
+        assertEquals(project0.hashCode(), projectRepository.findById(project0.getId()).get().hashCode());
+        assertEquals(project1.hashCode(), projectRepository.findById(project1.getId()).get().hashCode());
+        assertEquals(emptyDescriptionProject.hashCode(), projectRepository.findById(emptyDescriptionProject.getId()).get().hashCode());
+        assertEquals(nullDescriptionProject.hashCode(), projectRepository.findById(nullDescriptionProject.getId()).get().hashCode());
+
+        // with id, compare with different object
+        assertNotEquals(project0.hashCode(), project1.hashCode());
+        assertNotEquals(project1.hashCode(), nullDescriptionProjectCopy.hashCode());
+        assertNotEquals(project2.hashCode(), emptyDescriptionProject.hashCode());
+        assertNotEquals(emptyDescriptionProject.hashCode(), nullDescriptionProject.hashCode());
+
+        // with id, compare with different object with same parameters
+        assertNotEquals(project0.hashCode(), project0Copy.hashCode());
+        assertNotEquals(project1.hashCode(), project1Copy.hashCode());
+        assertNotEquals(emptyDescriptionProject.hashCode(), emptyDescriptionProjectCopy.hashCode());
+        assertNotEquals(nullDescriptionProject.hashCode(), nullDescriptionProjectCopy.hashCode());
     }
 
     @Test
@@ -238,23 +256,52 @@ public class ProjectTests {
     }
 
     @Test
+    public void checkSetNameValid() {
+        String newName = "New Project Name";
+        project0.setName(newName);
+        assertEquals(newName, project0.getName());
+    }
+
+    @Test
     public void checkSetNameEmpty() {
         assertThrows(ProjectException.class, () -> project0.setName(""));
+        assertEquals(validName0, project0.getName());
+
         assertThrows(ProjectException.class, () -> project1.setName(""));
+        assertEquals(validName1, project1.getName());
+
         assertThrows(ProjectException.class, () -> project2.setName(""));
+        assertEquals(validName2, project2.getName());
+
         assertThrows(ProjectException.class, () -> project3.setName(""));
+        assertEquals(validName3, project3.getName());
+
         assertThrows(ProjectException.class, () -> emptyDescriptionProject.setName(""));
+        assertEquals(validName0, emptyDescriptionProject.getName());
+
         assertThrows(ProjectException.class, () -> nullDescriptionProject.setName(""));
+        assertEquals(validName1, nullDescriptionProject.getName());
     }
 
     @Test
     public void checkSetNameNull() {
         assertThrows(ProjectException.class, () -> project0.setName(null));
+        assertEquals(validName0, project0.getName());
+
         assertThrows(ProjectException.class, () -> project1.setName(null));
+        assertEquals(validName1, project1.getName());
+
         assertThrows(ProjectException.class, () -> project2.setName(null));
+        assertEquals(validName2, project2.getName());
+
         assertThrows(ProjectException.class, () -> project3.setName(null));
+        assertEquals(validName3, project3.getName());
+
         assertThrows(ProjectException.class, () -> emptyDescriptionProject.setName(null));
+        assertEquals(validName0, emptyDescriptionProject.getName());
+
         assertThrows(ProjectException.class, () -> nullDescriptionProject.setName(null));
+        assertEquals(validName1, nullDescriptionProject.getName());
     }
 
     @Test
@@ -265,7 +312,7 @@ public class ProjectTests {
         assertEquals(description3, project3.getDescription());
 
         assertEquals(emptyDescription, emptyDescriptionProject.getDescription());
-        assertEquals(nullDescription, nullDescriptionProject.getDescription());
+        assertEquals(emptyDescription, nullDescriptionProject.getDescription()); // null is treated as empty string
 
         assertNotEquals(description1, project0.getDescription());
         assertNotEquals(description2, project1.getDescription());
@@ -286,5 +333,41 @@ public class ProjectTests {
         assertNotEquals(description1, emptyDescriptionProject.getDescription());
         assertNotEquals(description2, nullDescriptionProject.getDescription());
         assertNotEquals(description3, nullDescriptionProject.getDescription());
+    }
+
+    @Test
+    public void checkSetDescriptionValid() {
+        String newDescription = "New Project Description";
+        project0.setDescription(newDescription);
+        assertEquals(newDescription, project0.getDescription());
+    }
+
+    @Test
+    public void checkSetDescriptionEmpty() {
+        project0.setDescription("");
+        assertEquals("", project0.getDescription());
+    }
+
+    @Test
+    public void checkSetDescriptionNull() {
+        project0.setDescription(null);
+        assertEquals("", project0.getDescription()); // null is treated as empty string
+    }
+
+    @Test
+    public void checkCreationTime() {
+        assertNotNull(project0.getCreationTime());
+        assertNotNull(project1.getCreationTime());
+        assertNotNull(project2.getCreationTime());
+        assertNotNull(project3.getCreationTime());
+        assertNotNull(emptyDescriptionProject.getCreationTime());
+        assertNotNull(nullDescriptionProject.getCreationTime());
+
+        assertTrue(project0.getCreationTime().isBefore(LocalDateTime.now().plusSeconds(1)));
+        assertTrue(project1.getCreationTime().isBefore(LocalDateTime.now().plusSeconds(1)));
+        assertTrue(project2.getCreationTime().isBefore(LocalDateTime.now().plusSeconds(1)));
+        assertTrue(project3.getCreationTime().isBefore(LocalDateTime.now().plusSeconds(1)));
+        assertTrue(emptyDescriptionProject.getCreationTime().isBefore(LocalDateTime.now().plusSeconds(1)));
+        assertTrue(nullDescriptionProject.getCreationTime().isBefore(LocalDateTime.now().plusSeconds(1)));
     }
 }
