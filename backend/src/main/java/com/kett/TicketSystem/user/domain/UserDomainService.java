@@ -15,7 +15,6 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -74,20 +73,8 @@ public class UserDomainService implements UserDetailsService {
                 .orElseThrow(() -> new NoUserFoundException("could not find user with eMailAddress: " + eMailAddress));
     }
 
-    public UUID getUserIdByEmail(EmailAddress postingUserEmail) throws NoUserFoundException {
-        return this.getUserByEMailAddress(postingUserEmail).getId();
-    }
-
-    public UUID getUserIdByEmail(String postingUserEmail) throws NoUserFoundException {
-        return this.getUserIdByEmail(EmailAddress.fromString(postingUserEmail));
-    }
-
-    public boolean isExistentById(UUID id) {
-        return userRepository.existsById(id);
-    }
-
     @Override
-    public UserDetails loadUserByUsername(String email) throws NoUserFoundException, UsernameNotFoundException {
+    public UserDetails loadUserByUsername(String email) throws NoUserFoundException {
         User user = this.getUserByEMailAddress(EmailAddress.fromString(email));
         List<GrantedAuthority> grantedAuthorities = this.getAllUserAuthoritiesByUserId(user.getId());
 
@@ -132,7 +119,7 @@ public class UserDomainService implements UserDetailsService {
 
     // delete
 
-    public void deleteById(UUID id) {
+    public void deleteById(UUID id) throws NoUserFoundException {
         User user = userRepository
                 .findById(id)
                 .orElseThrow(() -> new NoUserFoundException("could not delete because there was no user with id: " + id));
