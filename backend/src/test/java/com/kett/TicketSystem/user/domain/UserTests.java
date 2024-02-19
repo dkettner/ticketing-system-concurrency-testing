@@ -7,31 +7,57 @@ import com.kett.TicketSystem.user.repository.UserRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.test.context.ActiveProfiles;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.lenient;
 
-@SpringBootTest
-@ActiveProfiles({ "test" })
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
+@ExtendWith(MockitoExtension.class)
 public class UserTests {
-    private final UserRepository userRepository;
+
+    @Mock
+    private UserRepository userRepository;
 
     private User user0;
     private User user1;
     private User user2;
     private User user3;
 
-    @Autowired
-    public UserTests(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
-
     @BeforeEach
     public void buildUp() {
+        lenient()
+                .when(userRepository.save(ArgumentMatchers.any(User.class)))
+                .thenAnswer(invocation -> {
+                    User user = invocation.getArgument(0);
+                    if(user.getId() == null) {
+                        user.setId(UUID.randomUUID());
+                    }
+                    return user;
+                });
+
+        lenient()
+                .when(userRepository.findById(ArgumentMatchers.any(UUID.class)))
+                .thenAnswer(invocation -> {
+                    UUID id = invocation.getArgument(0);
+                    if(id.equals(user0.getId())) {
+                        return Optional.of(user0);
+                    } else if(id.equals(user1.getId())) {
+                        return Optional.of(user1);
+                    } else if(id.equals(user2.getId())) {
+                        return Optional.of(user2);
+                    } else if(id.equals(user3.getId())) {
+                        return Optional.of(user3);
+                    } else {
+                        return Optional.empty();
+                    }
+                });
+
         user0 = new User("User0", "user0@example.com", "password0");
         user1 = new User("User1", "user1@example.com", "password1");
         user2 = new User("User2", "user2@example.com", "password2");
@@ -44,8 +70,6 @@ public class UserTests {
         user1 = null;
         user2 = null;
         user3 = null;
-
-        userRepository.deleteAll();
     }
 
     @Test

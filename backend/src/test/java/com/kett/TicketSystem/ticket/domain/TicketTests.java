@@ -5,23 +5,25 @@ import com.kett.TicketSystem.ticket.repository.TicketRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.test.context.ActiveProfiles;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.lenient;
 
-@SpringBootTest
-@ActiveProfiles({ "test" })
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
+@ExtendWith(MockitoExtension.class)
 public class TicketTests {
-    private final TicketRepository ticketRepository;
+
+    @Mock
+    private TicketRepository ticketRepository;
 
     private UUID assigneeId0;
     private UUID assigneeId1;
@@ -73,13 +75,35 @@ public class TicketTests {
         }
     }
 
-    @Autowired
-    public TicketTests(TicketRepository ticketRepository) {
-        this.ticketRepository = ticketRepository;
-    }
-
     @BeforeEach
     public void buildUp() {
+        lenient()
+                .when(ticketRepository.save(ArgumentMatchers.any(Ticket.class)))
+                .thenAnswer(invocation -> {
+                    Ticket ticket = invocation.getArgument(0);
+                    if(ticket.getId() == null) {
+                        ticket.setId(UUID.randomUUID());
+                    }
+                    return ticket;
+                });
+
+        lenient()
+                .when(ticketRepository.findById(ArgumentMatchers.any(UUID.class)))
+                .thenAnswer(invocation -> {
+                    UUID id = invocation.getArgument(0);
+                    if(id.equals(ticket0.getId())) {
+                        return Optional.of(ticket0);
+                    } else if(id.equals(ticket1.getId())) {
+                        return Optional.of(ticket1);
+                    } else if(id.equals(ticket2.getId())) {
+                        return Optional.of(ticket2);
+                    } else if(id.equals(ticket3.getId())) {
+                        return Optional.of(ticket3);
+                    } else {
+                        return Optional.empty();
+                    }
+                });
+
         assigneeId0 = UUID.randomUUID();
         assigneeId1 = UUID.randomUUID();
         assigneeId2 = UUID.randomUUID();
@@ -173,8 +197,6 @@ public class TicketTests {
         ticket1 = null;
         ticket2 = null;
         ticket3 = null;
-
-        ticketRepository.deleteAll();
     }
 
     @Test

@@ -6,20 +6,22 @@ import com.kett.TicketSystem.membership.repository.MembershipRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.test.context.ActiveProfiles;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.lenient;
 
-@SpringBootTest
-@ActiveProfiles({ "test" })
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
+@ExtendWith(MockitoExtension.class)
 public class MembershipTests {
-    private final MembershipRepository membershipRepository;
+
+    @Mock
+    private MembershipRepository membershipRepository;
 
     private UUID uuid0;
     private UUID uuid1;
@@ -48,13 +50,35 @@ public class MembershipTests {
         }
     }
 
-    @Autowired
-    public MembershipTests(MembershipRepository membershipRepository) {
-        this.membershipRepository = membershipRepository;
-    }
-
     @BeforeEach
     public void buildUp() {
+        lenient()
+                .when(membershipRepository.save(ArgumentMatchers.any(Membership.class)))
+                .thenAnswer(invocation -> {
+                    Membership membership = invocation.getArgument(0);
+                    if(membership.getId() == null) {
+                        membership.setId(UUID.randomUUID());
+                    }
+                    return membership;
+                });
+
+        lenient()
+                .when(membershipRepository.findById(ArgumentMatchers.any(UUID.class)))
+                .thenAnswer(invocation -> {
+                    UUID id = invocation.getArgument(0);
+                    if(id.equals(membership0.getId())) {
+                        return Optional.of(membership0);
+                    } else if(id.equals(membership1.getId())) {
+                        return Optional.of(membership1);
+                    } else if(id.equals(membership2.getId())) {
+                        return Optional.of(membership2);
+                    } else if(id.equals(membership3.getId())) {
+                        return Optional.of(membership3);
+                    } else {
+                        return Optional.empty();
+                    }
+                });
+
         uuid0 = UUID.randomUUID();
         uuid1 = UUID.randomUUID();
         uuid2 = UUID.randomUUID();

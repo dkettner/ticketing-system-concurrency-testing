@@ -6,25 +6,22 @@ import com.kett.TicketSystem.notification.repository.NotificationRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.test.context.ActiveProfiles;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.lenient;
 
-/**
- * This class contains tests for the Notification class.
- * It tests all methods and fields of the Notification class.
- */
 
-@SpringBootTest
-@ActiveProfiles({ "test" })
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
+@ExtendWith(MockitoExtension.class)
 public class NotificationTests {
-    private final NotificationRepository notificationRepository;
+
+    @Mock
+    private NotificationRepository notificationRepository;
 
     private UUID uuid0;
     private UUID uuid1;
@@ -55,13 +52,35 @@ public class NotificationTests {
         }
     }
 
-    @Autowired
-    public NotificationTests(NotificationRepository notificationRepository) {
-        this.notificationRepository = notificationRepository;
-    }
-
     @BeforeEach
     public void buildUp() {
+        lenient()
+                .when(notificationRepository.save(ArgumentMatchers.any(Notification.class)))
+                .thenAnswer(invocation -> {
+                    Notification notification = invocation.getArgument(0);
+                    if(notification.getId() == null) {
+                        notification.setId(UUID.randomUUID());
+                    }
+                    return notification;
+                });
+
+        lenient()
+                .when(notificationRepository.findById(ArgumentMatchers.any(UUID.class)))
+                .thenAnswer(invocation -> {
+                    UUID id = invocation.getArgument(0);
+                    if(id.equals(notification0.getId())) {
+                        return java.util.Optional.of(notification0);
+                    } else if(id.equals(notification1.getId())) {
+                        return java.util.Optional.of(notification1);
+                    } else if(id.equals(notification2.getId())) {
+                        return java.util.Optional.of(notification2);
+                    } else if(id.equals(notification3.getId())) {
+                        return java.util.Optional.of(notification3);
+                    } else {
+                        return java.util.Optional.empty();
+                    }
+                });
+
         uuid0 = UUID.randomUUID();
         uuid1 = UUID.randomUUID();
         uuid2 = UUID.randomUUID();

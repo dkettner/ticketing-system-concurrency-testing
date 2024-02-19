@@ -5,20 +5,23 @@ import com.kett.TicketSystem.project.repository.ProjectRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.test.context.ActiveProfiles;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.lenient;
 
-@SpringBootTest
-@ActiveProfiles({ "test" })
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
+@ExtendWith(MockitoExtension.class)
 public class ProjectTests {
-    private final ProjectRepository projectRepository;
+
+    @Mock
+    private ProjectRepository projectRepository;
 
     private String validName0;
     private String validName1;
@@ -43,14 +46,39 @@ public class ProjectTests {
     private Project emptyDescriptionProject;
     private Project nullDescriptionProject;
 
-    @Autowired
-    public ProjectTests(ProjectRepository projectRepository) {
-        this.projectRepository = projectRepository;
-    }
-
-
     @BeforeEach
     public void buildUp() {
+        lenient()
+                .when(projectRepository.save(ArgumentMatchers.any(Project.class)))
+                .thenAnswer(invocation -> {
+                    Project project = invocation.getArgument(0);
+                    if(project.getId() == null) {
+                        project.setId(UUID.randomUUID());
+                    }
+                    return project;
+                });
+
+        lenient()
+                .when(projectRepository.findById(ArgumentMatchers.any(UUID.class)))
+                .thenAnswer(invocation -> {
+                    UUID id = invocation.getArgument(0);
+                    if(id.equals(project0.getId())) {
+                        return Optional.of(project0);
+                    } else if(id.equals(project1.getId())) {
+                        return Optional.of(project1);
+                    } else if(id.equals(project2.getId())) {
+                        return Optional.of(project2);
+                    } else if(id.equals(project3.getId())) {
+                        return Optional.of(project3);
+                    } else if(id.equals(emptyDescriptionProject.getId())) {
+                        return Optional.of(emptyDescriptionProject);
+                    } else if(id.equals(nullDescriptionProject.getId())) {
+                        return Optional.of(nullDescriptionProject);
+                    } else {
+                        return Optional.empty();
+                    }
+                });
+
         validName0 = "Develop new Javascript Framework";
         validName1 = "Calculate TSM in O(n)";
         validName2 = "Do Stuff.";

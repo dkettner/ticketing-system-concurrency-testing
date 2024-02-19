@@ -6,18 +6,18 @@ import com.kett.TicketSystem.phase.repository.PhaseRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.test.context.ActiveProfiles;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.lenient;
 
-@SpringBootTest
-@ActiveProfiles({ "test" })
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
+@ExtendWith(MockitoExtension.class)
 public class PhaseTests {
     private UUID projectId0;
     private UUID projectId1;
@@ -40,6 +40,7 @@ public class PhaseTests {
     private String phaseName6;
     private String phaseName7;
 
+    @Mock
     private PhaseRepository phaseRepository;
 
     public static class TestablePhase extends Phase {
@@ -52,13 +53,35 @@ public class PhaseTests {
         }
     }
 
-    @Autowired
-    public PhaseTests(PhaseRepository phaseRepository) {
-        this.phaseRepository = phaseRepository;
-    }
-
     @BeforeEach
     public void buildUp() {
+        lenient()
+                .when(phaseRepository.save(ArgumentMatchers.any(Phase.class)))
+                .thenAnswer(invocation -> {
+                    Phase phase = invocation.getArgument(0);
+                    if(phase.getId() == null) {
+                        phase.setId(UUID.randomUUID());
+                    }
+                    return phase;
+                });
+
+        lenient()
+                .when(phaseRepository.findById(ArgumentMatchers.any(UUID.class)))
+                .thenAnswer(invocation -> {
+                    UUID id = invocation.getArgument(0);
+                    if(id.equals(phase0.getId())) {
+                        return Optional.of(phase0);
+                    } else if(id.equals(phase1.getId())) {
+                        return Optional.of(phase1);
+                    } else if(id.equals(phase2.getId())) {
+                        return Optional.of(phase2);
+                    } else if(id.equals(phase3.getId())) {
+                        return Optional.of(phase3);
+                    } else {
+                        return Optional.empty();
+                    }
+                });
+
         projectId0 = UUID.randomUUID();
         projectId1 = UUID.randomUUID();
 
