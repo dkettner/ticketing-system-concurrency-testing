@@ -38,6 +38,8 @@ public class NotificationDomainService {
         this.userDataOfNotificationRepository = userDataOfNotificationRepository;
     }
 
+    // read
+
     public Notification getNotificationById(UUID id) throws NoNotificationFoundException {
         return notificationRepository
                 .findById(id)
@@ -58,15 +60,7 @@ public class NotificationDomainService {
                 );
     }
 
-    public List<Notification> getUnreadNotificationsByRecipientId(UUID recipientId) throws NoNotificationFoundException {
-        List<Notification> notifications = notificationRepository.findByRecipientIdAndIsReadFalse(recipientId);
-        if (notifications.isEmpty()) {
-            throw new NoNotificationFoundException("could not find notifications with recipientId: " + recipientId);
-        }
-        return notifications;
-    }
-
-    public UUID getGetRecipientIdByNotificationId(UUID id) throws NoNotificationFoundException {
+    public UUID getRecipientIdByNotificationId(UUID id) throws NoNotificationFoundException {
         return this
                 .getNotificationById(id)
                 .getRecipientId();
@@ -80,11 +74,15 @@ public class NotificationDomainService {
         return userData.get(0).getUserId();
     }
 
+    // update
+
     public void patchById(UUID id, Boolean isRead) throws NoNotificationFoundException, NotificationException, IllegalStateUpdateException {
         Notification notification = this.getNotificationById(id);
         notification.setIsRead(isRead);
         notificationRepository.save(notification);
     }
+
+    // delete
 
     public void deleteById(UUID id) throws NoNotificationFoundException {
         Long numOfDeletedNotifications = notificationRepository.removeById(id);

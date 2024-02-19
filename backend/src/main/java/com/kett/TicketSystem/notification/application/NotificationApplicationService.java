@@ -27,7 +27,7 @@ public class NotificationApplicationService {
         this.dtoMapper = dtoMapper;
     }
 
-    @PreAuthorize("hasAuthority('ROLE_USER_'.concat(@notificationDomainService.getGetRecipientIdByNotificationId(#id)))")
+    @PreAuthorize("hasAuthority('ROLE_USER_'.concat(@notificationDomainService.getRecipientIdByNotificationId(#id)))")
     public NotificationResponseDto getNotificationById(UUID id) {
         Notification notification = notificationDomainService.getNotificationById(id);
         return dtoMapper.mapNotificationToNotificationResponseDto(notification);
@@ -45,12 +45,12 @@ public class NotificationApplicationService {
         return dtoMapper.mapNotificationListToNotificationResponseDtoList(notifications);
     }
 
-    @PreAuthorize("hasAuthority('ROLE_USER_'.concat(@notificationDomainService.getGetRecipientIdByNotificationId(#id)))")
+    @PreAuthorize("hasAuthority('ROLE_USER_'.concat(@notificationDomainService.getRecipientIdByNotificationId(#id)))")
     public void patchNotification(UUID id, NotificationPatchDto notificationPatchDto) {
         notificationDomainService.patchById(id, notificationPatchDto.getIsRead());
     }
 
-    @PreAuthorize("hasAuthority('ROLE_USER_'.concat(@notificationDomainService.getGetRecipientIdByNotificationId(#id)))")
+    @PreAuthorize("hasAuthority('ROLE_USER_'.concat(@notificationDomainService.getRecipientIdByNotificationId(#id)))")
     public void deleteNotificationById(UUID id) {
         notificationDomainService.deleteById(id);
     }
