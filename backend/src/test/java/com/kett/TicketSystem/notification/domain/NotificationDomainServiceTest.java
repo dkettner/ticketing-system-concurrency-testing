@@ -3,15 +3,21 @@ package com.kett.TicketSystem.notification.domain;
 import com.kett.TicketSystem.common.domainprimitives.EmailAddress;
 import com.kett.TicketSystem.common.exceptions.IllegalStateUpdateException;
 import com.kett.TicketSystem.common.exceptions.ImpossibleException;
+import com.kett.TicketSystem.membership.domain.events.UnacceptedProjectMembershipCreatedEvent;
 import com.kett.TicketSystem.notification.domain.consumedData.UserDataOfNotification;
 import com.kett.TicketSystem.notification.domain.exceptions.NoNotificationFoundException;
 import com.kett.TicketSystem.notification.domain.exceptions.NotificationException;
 import com.kett.TicketSystem.notification.repository.NotificationRepository;
 import com.kett.TicketSystem.notification.repository.UserDataOfNotificationRepository;
+import com.kett.TicketSystem.ticket.domain.events.TicketAssignedEvent;
+import com.kett.TicketSystem.user.domain.events.UserCreatedEvent;
+import com.kett.TicketSystem.user.domain.events.UserDeletedEvent;
+import com.kett.TicketSystem.user.domain.events.UserPatchedEvent;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -20,12 +26,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-// write unit tests for notificationDomainService and use ProjectDomainServiceTest as a reference.
-// use the structure of Arrange, Act, and Assert
 
 @ExtendWith(MockitoExtension.class)
 public class NotificationDomainServiceTest {
@@ -76,6 +79,10 @@ public class NotificationDomainServiceTest {
         recipientId0 = null;
         emailAddress0 = null;
         notification0 = null;
+
+        notificationId1 = null;
+        content1 = null;
+        notification1 = null;
 
         userDataOfNotification0 = null;
     }
@@ -339,4 +346,107 @@ public class NotificationDomainServiceTest {
     }
 
 
+    // event listeners
+
+    @Test
+    public void testHandleUnacceptedProjectMembershipCreatedEvent() {
+        // Arrange
+        UnacceptedProjectMembershipCreatedEvent event =
+                new UnacceptedProjectMembershipCreatedEvent(UUID.randomUUID(),UUID.randomUUID(), UUID.randomUUID());
+
+        // Act
+        notificationDomainService.handleUnacceptedProjectMembershipCreatedEvent(event);
+
+        // Assert
+        ArgumentCaptor<Notification> notificationCaptor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository).save(notificationCaptor.capture());
+        assertEquals(event.getInviteeId(), notificationCaptor.getValue().getRecipientId());
+        assertTrue(notificationCaptor.getValue().getContent().contains(event.getProjectId().toString()));
+    }
+
+    @Test
+    public void testHandleTicketAssignedEvent() {
+        // Arrange
+        TicketAssignedEvent event = new TicketAssignedEvent(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
+
+        // Act
+        notificationDomainService.handleTicketAssignedEvent(event);
+
+        // Assert
+        ArgumentCaptor<Notification> notificationCaptor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository).save(notificationCaptor.capture());
+        assertEquals(event.getAssigneeId(), notificationCaptor.getValue().getRecipientId());
+        assertTrue(notificationCaptor.getValue().getContent().contains(event.getTicketId().toString()));
+        assertTrue(notificationCaptor.getValue().getContent().contains(event.getProjectId().toString()));
+    }
+
+    @Test
+    public void testHandleTicketUnassignedEvent() {
+        // Arrange
+        TicketAssignedEvent event = new TicketAssignedEvent(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
+
+        // Act
+        notificationDomainService.handleTicketAssignedEvent(event);
+
+        // Assert
+        ArgumentCaptor<Notification> notificationCaptor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository).save(notificationCaptor.capture());
+        assertEquals(event.getAssigneeId(), notificationCaptor.getValue().getRecipientId());
+        assertTrue(notificationCaptor.getValue().getContent().contains(event.getTicketId().toString()));
+        assertTrue(notificationCaptor.getValue().getContent().contains(event.getProjectId().toString()));
+    }
+
+    @Test
+    public void testHandleUserCreatedEvent() {
+        // Arrange
+        UUID userId = UUID.randomUUID();
+        EmailAddress emailAddress = EmailAddress.fromString("some@mail.com");
+        UserCreatedEvent event = new UserCreatedEvent(userId, "name", emailAddress);
+
+        // Act
+        notificationDomainService.handleUserCreatedEvent(event);
+
+        // Assert
+        ArgumentCaptor<UserDataOfNotification> captor = ArgumentCaptor.forClass(UserDataOfNotification.class);
+        verify(userDataOfNotificationRepository).save(captor.capture());
+        assertEquals(userId, captor.getValue().getUserId());
+        assertEquals(emailAddress, captor.getValue().getUserEmail());
+    }
+
+    @Test
+    public void testHandleUserPatchedEvent() {
+        // Arrange
+        when(userDataOfNotificationRepository.findByUserId(recipientId0))
+                .thenReturn(java.util.List.of(userDataOfNotification0));
+
+        EmailAddress newEmailAddress = EmailAddress.fromString("new@mail.com");
+        UserPatchedEvent event = new UserPatchedEvent(userDataOfNotification0.getUserId(), "someName", newEmailAddress);
+
+        // Act
+        notificationDomainService.handleUserPatchedEvent(event);
+
+        // Assert
+        ArgumentCaptor<UserDataOfNotification> captor = ArgumentCaptor.forClass(UserDataOfNotification.class);
+        verify(userDataOfNotificationRepository).save(captor.capture());
+        assertEquals(userDataOfNotification0.getUserId(), captor.getValue().getUserId());
+        assertEquals(newEmailAddress, captor.getValue().getUserEmail());
+        assertNotEquals(emailAddress0, captor.getValue().getUserEmail());
+
+        verify(userDataOfNotificationRepository).findByUserId(recipientId0);
+    }
+
+    @Test
+    public void testHandleUserDeletedEvent() {
+        // Arrange
+        UUID userId = UUID.randomUUID();
+        EmailAddress emailAddress = EmailAddress.fromString("some@mail.com");
+        UserDeletedEvent event = new UserDeletedEvent(userId, "Bugs Bunny", emailAddress);
+
+        // Act
+        notificationDomainService.handleUserDeletedEvent(event);
+
+        // Assert
+        verify(userDataOfNotificationRepository).deleteByUserId(userId);
+        verify(notificationRepository).deleteByRecipientId(userId);
+    }
 }
