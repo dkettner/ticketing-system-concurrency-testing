@@ -32,7 +32,6 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-// User UserDomainServiceTest.java as a reference for the test cases
 
 @ExtendWith(MockitoExtension.class)
 public class ProjectDomainServiceTest {
