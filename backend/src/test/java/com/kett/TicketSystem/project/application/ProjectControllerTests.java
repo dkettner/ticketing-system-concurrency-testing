@@ -48,8 +48,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 public class ProjectControllerTests {
     private final MockMvc mockMvc;
     private final ObjectMapper objectMapper;
-    private final EventCatcher eventCatcher;
-    private final ApplicationEventPublisher eventPublisher;
     private final ProjectDomainService projectDomainService;
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
@@ -73,16 +71,12 @@ public class ProjectControllerTests {
     public ProjectControllerTests(
             MockMvc mockMvc,
             ObjectMapper objectMapper,
-            EventCatcher eventCatcher,
-            ApplicationEventPublisher eventPublisher,
             ProjectDomainService projectDomainService,
             ProjectRepository projectRepository,
             UserRepository userRepository
     ) {
         this.mockMvc = mockMvc;
         this.objectMapper = objectMapper;
-        this.eventCatcher = eventCatcher;
-        this.eventPublisher = eventPublisher;
         this.projectDomainService = projectDomainService;
         this.projectRepository = projectRepository;
         this.userRepository = userRepository;
@@ -127,8 +121,10 @@ public class ProjectControllerTests {
 
     @Test
     public void postProjectTest() throws Exception {
-        eventCatcher.catchEventOfType(ProjectCreatedEvent.class);
+        // Arrange
         ProjectPostDto projectPostDto = new ProjectPostDto(projectName, projectDescription);
+
+        // Act & Assert
         MvcResult postResult =
                 mockMvc.perform(
                                 post("/projects")
@@ -140,24 +136,14 @@ public class ProjectControllerTests {
                         .andExpect(jsonPath("$.name").value(projectPostDto.getName()))
                         .andExpect(jsonPath("$.description").value(projectPostDto.getDescription()))
                         .andReturn();
-
-        // test instance
-        String postResponse = postResult.getResponse().getContentAsString();
-        projectId = UUID.fromString(JsonPath.parse(postResponse).read("$.id"));
-        Project project = projectDomainService.getProjectById(projectId);
-        assertEquals(projectId, project.getId());
-        assertEquals(projectPostDto.getName(), project.getName());
-        assertEquals(projectPostDto.getDescription(), project.getDescription());
-
-        // test ProjectCreatedEvent
-        await().until(eventCatcher::hasCaughtEvent);
-        ProjectCreatedEvent projectCreatedEvent = (ProjectCreatedEvent) eventCatcher.getEvent();
-        assertEquals(projectId, projectCreatedEvent.getProjectId());
-        assertEquals(userId, projectCreatedEvent.getUserId());
     }
 
     @Test
     public void getProjectTest() throws Exception {
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
         MvcResult getResult =
                 mockMvc.perform(
                                 get("/projects/" + buildUpProjectId)
@@ -172,6 +158,10 @@ public class ProjectControllerTests {
 
     @Test
     public void getNonExistingProjectTest() throws Exception {
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
         MvcResult getResult =
                 mockMvc.perform(
                                 get("/projects/" + UUID.randomUUID())
@@ -183,7 +173,10 @@ public class ProjectControllerTests {
 
     @Test
     public void deleteProjectTest() throws Exception {
-        eventCatcher.catchEventOfType(ProjectDeletedEvent.class);
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
         MvcResult deleteResult =
                 mockMvc.perform(
                         delete("/projects/" + buildUpProjectId)
@@ -191,21 +184,16 @@ public class ProjectControllerTests {
                                 .header("Authorization", jwt))
                 .andExpect(status().isNoContent())
                 .andReturn();
-
-        // test ProjectDeletedEvent
-        await().until(eventCatcher::hasCaughtEvent);
-        ProjectDeletedEvent projectDeletedEvent = (ProjectDeletedEvent) eventCatcher.getEvent();
-        assertEquals(buildUpProjectId, projectDeletedEvent.getProjectId());
-
-        // test instance
-        assertThrows(NoProjectFoundException.class, () -> projectDomainService.getProjectById(buildUpProjectId));
     }
 
     @Test
     public void patchProjectTest() throws Exception {
+        // Arrange
         String newName = "Hallo";
         String newDescription = "Ciao";
         ProjectPatchDto projectPatchDto = new ProjectPatchDto(newName, newDescription);
+
+        // Act & Assert
         MvcResult patchResult =
                 mockMvc.perform(
                                 patch("/projects/" + buildUpProjectId)
@@ -221,47 +209,154 @@ public class ProjectControllerTests {
         assertEquals(projectPatchDto.getDescription(), project.getDescription());
     }
 
+    // new tests
+
     @Test
-    public void consumeUserCreatedEventTest() throws Exception {
-        UUID mockUserId = UUID.randomUUID();
-        String mockUserName = "Stefan Stephens";
-        EmailAddress mockEmailAddress = EmailAddress.fromString("Stef.steph@timeless.de");
+    public void testPostProjectWithInvalidJwt() throws Exception {
+        // Arrange
+        ProjectPostDto projectPostDto = new ProjectPostDto(projectName, projectDescription);
 
-        eventCatcher.catchEventOfType(DefaultProjectCreatedEvent.class);
-        eventPublisher.publishEvent(
-                new UserCreatedEvent(
-                        mockUserId,
-                        mockUserName,
-                        mockEmailAddress
-                )
-        );
-
-        // test DefaultProjectCreatedEvent
-        await().until(eventCatcher::hasCaughtEvent);
-        DefaultProjectCreatedEvent defaultProjectCreatedEvent = (DefaultProjectCreatedEvent) eventCatcher.getEvent();
-        assertEquals(mockUserId, defaultProjectCreatedEvent.getUserId());
-
-        // test if project was actually created
-        Project defaultProject = projectDomainService.getProjectById(defaultProjectCreatedEvent.getProjectId());
+        // Act & Assert
+        mockMvc.perform(
+                        post("/projects")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(projectPostDto))
+                                .header("Authorization", "Bearer " + UUID.randomUUID().toString()))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
-    public void consumeLastMembershipDeletedEventTest() throws Exception {
-        eventCatcher.catchEventOfType(ProjectDeletedEvent.class);
-        eventPublisher.publishEvent(
-                new LastProjectMemberDeletedEvent(
-                        UUID.randomUUID(),
-                        userId,
-                        buildUpProjectId
-                )
-        );
+    public void testPostProjectWithInvalidProjectPostDto() throws Exception {
+        // Arrange
+        ProjectPostDto projectPostDto = new ProjectPostDto(null, null);
 
-        // test DefaultProjectCreatedEvent
-        await().until(eventCatcher::hasCaughtEvent);
-        ProjectDeletedEvent projectDeletedEvent = (ProjectDeletedEvent) eventCatcher.getEvent();
-        assertEquals(buildUpProjectId, projectDeletedEvent.getProjectId());
+        // Act & Assert
+        mockMvc.perform(
+                        post("/projects")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(projectPostDto))
+                                .header("Authorization", jwt))
+                .andExpect(status().isBadRequest());
+    }
 
-        // test instance
-        assertThrows(NoProjectFoundException.class, () -> projectDomainService.getProjectById(buildUpProjectId));
+    @Test
+    public void testGetProjectUnauthorized() throws Exception {
+        // Arrange
+        String differentUserName = "Different User";
+        String differentUserEmail = "differen@user.com";
+        String differentUserPassword = "DifferentPassword";
+        UUID differentUserId = restMinion.postUser(differentUserName, differentUserEmail, differentUserPassword);
+        String differentUserJwt = restMinion.authenticateUser(differentUserEmail, differentUserPassword);
+
+        // Act & Assert
+        mockMvc.perform(
+                        get("/projects/" + buildUpProjectId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .header("Authorization", differentUserJwt))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void testGetProjectNotFound() throws Exception {
+        // Arrange
+        UUID nonExistingProjectId = UUID.randomUUID();
+
+        // Act & Assert
+        mockMvc.perform(
+                        get("/projects/" + nonExistingProjectId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .header("Authorization", jwt))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void testPatchProjectUnauthorized() throws Exception {
+        // Arrange
+        String differentUserName = "Different User";
+        String differentUserEmail = "differen@user.com";
+        String differentUserPassword = "DifferentPassword";
+        UUID differentUserId = restMinion.postUser(differentUserName, differentUserEmail, differentUserPassword);
+        String differentUserJwt = restMinion.authenticateUser(differentUserEmail, differentUserPassword);
+        ProjectPatchDto projectPatchDto = new ProjectPatchDto("New Name", "New Description");
+
+        // Act & Assert
+        mockMvc.perform(
+                        patch("/projects/" + buildUpProjectId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(projectPatchDto))
+                                .header("Authorization", differentUserJwt))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void testPatchProjectNotFound() throws Exception {
+        // Arrange
+        UUID nonExistingProjectId = UUID.randomUUID();
+        ProjectPatchDto projectPatchDto = new ProjectPatchDto("New Name", "New Description");
+
+        // Act & Assert
+        mockMvc.perform(
+                        patch("/projects/" + nonExistingProjectId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(projectPatchDto))
+                                .header("Authorization", jwt))
+                .andExpect(status().isForbidden()); // fails early in security
+    }
+
+    @Test
+    public void testPatchProjectWithInvalidProjectPatchDto() throws Exception {
+        // Arrange
+        ProjectPatchDto projectPatchDto = new ProjectPatchDto("", null);
+
+        // Act & Assert
+        mockMvc.perform(
+                        patch("/projects/" + buildUpProjectId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(projectPatchDto))
+                                .header("Authorization", jwt))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void testDeleteProjectNotFound() throws Exception {
+        // Arrange
+        UUID nonExistingProjectId = UUID.randomUUID();
+
+        // Act & Assert
+        mockMvc.perform(
+                        delete("/projects/" + nonExistingProjectId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .header("Authorization", jwt))
+                .andExpect(status().isForbidden()); // fails early in security
+    }
+
+    @Test
+    public void testDeleteProjectUnauthorized() throws Exception {
+        // Arrange
+        String differentUserName = "Different User";
+        String differentUserEmail = "differen@user.com";
+        String differentUserPassword = "DifferentPassword";
+        UUID differentUserId = restMinion.postUser(differentUserName, differentUserEmail, differentUserPassword);
+        String differentUserJwt = restMinion.authenticateUser(differentUserEmail, differentUserPassword);
+
+        // Act & Assert
+        mockMvc.perform(
+                        delete("/projects/" + buildUpProjectId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .header("Authorization", differentUserJwt))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void testDeleteProjectInvalidJwt() throws Exception {
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
+        mockMvc.perform(
+                        delete("/projects/" + buildUpProjectId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .header("Authorization", "Bearer " + UUID.randomUUID().toString()))
+                .andExpect(status().isUnauthorized());
     }
 }

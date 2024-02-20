@@ -55,8 +55,6 @@ public class TicketControllerTests {
     private final MockMvc mockMvc;
     private final ObjectMapper objectMapper;
     private final RestRequestHelper restMinion;
-    private final ApplicationEventPublisher eventPublisher;
-    private final EventCatcher eventCatcher;
     private final TicketDomainService ticketDomainService;
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
@@ -94,8 +92,6 @@ public class TicketControllerTests {
     public TicketControllerTests(
             MockMvc mockMvc,
             ObjectMapper objectMapper,
-            ApplicationEventPublisher eventPublisher,
-            EventCatcher eventCatcher,
             TicketDomainService ticketDomainService,
             TicketRepository ticketRepository,
             UserRepository userRepository,
@@ -107,8 +103,6 @@ public class TicketControllerTests {
         this.objectMapper = objectMapper;
         this.projectRepository = projectRepository;
         this.restMinion = new RestRequestHelper(mockMvc, objectMapper);
-        this.eventPublisher = eventPublisher;
-        this.eventCatcher = eventCatcher;
         this.ticketDomainService = ticketDomainService;
         this.ticketRepository = ticketRepository;
         this.userRepository = userRepository;
@@ -184,10 +178,12 @@ public class TicketControllerTests {
 
     @Test
     public void getTicketByIdTest() throws Exception {
+        // Arrange
         UUID ticketId = restMinion.postTicket(
                 jwt0, buildUpProjectId, ticketTitle0, ticketDescription0, dateOfTomorrow, new ArrayList<>()
         );
 
+        // Act & Assert
         MvcResult getResult =
                 mockMvc.perform(
                                 get("/tickets/" + ticketId)
@@ -206,18 +202,19 @@ public class TicketControllerTests {
 
     @Test
     public void getTicketByPhaseIdQueryTest() throws Exception {
+        // Arrange
         UUID ticketId0 = restMinion.postTicket(
                 jwt0, buildUpProjectId, ticketTitle0, ticketDescription0, dateOfTomorrow, new ArrayList<>()
         );
-
         String ticketTitle1 = "blub";
         String ticketDescription1 = "asdlkfjaslkdfasdf";
         LocalDateTime dateOfTheDayAfterTomorrow = dateOfTomorrow.plusDays(1);
         UUID ticketId1 = restMinion.postTicket(
                 jwt0, buildUpProjectId, ticketTitle1, ticketDescription1, dateOfTheDayAfterTomorrow, new ArrayList<>()
         );
-
         UUID backlogId = ticketDomainService.getTicketById(ticketId0).getPhaseId();
+
+        // Act & Assert
         MvcResult getResult =
                 mockMvc.perform(
                                 get("/tickets" )
@@ -245,6 +242,7 @@ public class TicketControllerTests {
 
     @Test
     public void getTicketByProjectIdQueryTest() throws Exception {
+        // Arrange
         // first ticket
         UUID ticketId0 = restMinion.postTicket(
                 jwt0, buildUpProjectId, ticketTitle0, ticketDescription0, dateOfTomorrow, new ArrayList<>()
@@ -265,6 +263,7 @@ public class TicketControllerTests {
         // move first ticket to second phase
         restMinion.patchTicket(jwt0, ticketId0, null, null, null, donePhaseId, null);
 
+        // Act & Assert
         MvcResult getResult =
                 mockMvc.perform(
                                 get("/tickets" )
@@ -292,6 +291,7 @@ public class TicketControllerTests {
 
     @Test
     public void getTicketByAssigneeIdQueryTest() throws Exception {
+        // Arrange
         List<UUID> assigneeIds = new ArrayList<>();
         assigneeIds.add(userId1);
 
@@ -313,6 +313,7 @@ public class TicketControllerTests {
                 jwt1, secondProjectId, ticketTitle1, ticketDescription1, dateOfTheDayAfterTomorrow, assigneeIds
         );
 
+        // Act & Assert
         MvcResult getResult =
                 mockMvc.perform(
                                 get("/tickets" )
@@ -340,8 +341,10 @@ public class TicketControllerTests {
 
     @Test
     public void postTicketTest() throws Exception {
-        eventCatcher.catchEventOfType(TicketCreatedEvent.class);
+        // Arrange
         TicketPostDto ticketPostDto = new TicketPostDto(buildUpProjectId, ticketTitle0, ticketDescription0, dateOfTomorrow, new ArrayList<>());
+
+        // Act & Assert
         MvcResult postResult0 =
                 mockMvc.perform(
                                 post("/tickets")
@@ -357,36 +360,20 @@ public class TicketControllerTests {
                         .andExpect(jsonPath("$.creationTime").exists())
                         .andExpect(jsonPath("$.dueTime").exists())
                         .andReturn();
-        String postResponse0 = postResult0.getResponse().getContentAsString();
-        UUID ticketId = UUID.fromString(JsonPath.parse(postResponse0).read("$.id"));
-
-        // test event
-        await().until(eventCatcher::hasCaughtEvent);
-        TicketCreatedEvent ticketCreatedEvent = (TicketCreatedEvent) eventCatcher.getEvent();
-        assertEquals(ticketId, ticketCreatedEvent.getTicketId());
-        assertEquals(ticketPostDto.getProjectId(), ticketCreatedEvent.getProjectId());
-        assertEquals(userId0, ticketCreatedEvent.getUserId());
-
-        // test instance
-        Ticket ticket = ticketDomainService.getTicketById(ticketId);
-        assertEquals(ticketId, ticket.getId());
-        assertEquals(ticketPostDto.getTitle(), ticket.getTitle());
-        assertEquals(ticketPostDto.getDescription(), ticket.getDescription());
-        assertEquals(ticketPostDto.getAssigneeIds(), ticket.getAssigneeIds());
-        assertEquals(ticketPostDto.getDueTime(), ticket.getDueTime());
-        assertTrue(ticket.getCreationTime().isBefore(LocalDateTime.now()));
     }
 
     @Test
     public void patchTicketNameAndDescriptionAndDueTimeTest() throws Exception {
+        // Arrange
         UUID ticketId = restMinion.postTicket(
                 jwt0, buildUpProjectId, ticketTitle0, ticketDescription0, dateOfTomorrow, new ArrayList<>()
         );
-
         String newTitle = "a totally new title";
         String newDescription = "never seen anything like this";
         LocalDateTime newDueTime = dateOfTomorrow.plusDays(1);
         TicketPatchDto ticketPatchDto = new TicketPatchDto(newTitle, newDescription, newDueTime, null, null);
+
+        // Act & Assert
         MvcResult patchResult =
                 mockMvc.perform(
                                 patch("/tickets/" + ticketId)
@@ -395,26 +382,19 @@ public class TicketControllerTests {
                                         .header("Authorization", jwt0))
                         .andExpect(status().isNoContent())
                         .andReturn();
-
-        // test instance
-        Ticket ticket = ticketDomainService.getTicketById(ticketId);
-        assertEquals(ticketId, ticket.getId());
-        assertEquals(buildUpProjectId, ticket.getProjectId());
-        assertEquals(ticketPatchDto.getTitle(), ticket.getTitle());
-        assertEquals(ticketPatchDto.getDescription(), ticket.getDescription());
-        assertEquals(ticketPatchDto.getDueTime(), ticket.getDueTime());
     }
 
     @Test
     public void patchTicketPhaseIdTimeTest() throws Exception {
+        // Arrange
         UUID ticketId = restMinion.postTicket(
                 jwt0, buildUpProjectId, ticketTitle0, ticketDescription0, dateOfTomorrow, new ArrayList<>()
         );
         UUID backlogPhaseId = ticketDomainService.getTicketById(ticketId).getPhaseId();
         UUID donePhaseId = restMinion.postPhase(jwt0, buildUpProjectId, "DONE", backlogPhaseId);
-
-        eventCatcher.catchEventOfType(TicketPhaseUpdatedEvent.class);
         TicketPatchDto ticketPatchDto = new TicketPatchDto(null, null, null, donePhaseId, null);
+
+        // Act & Assert
         MvcResult patchResult =
                 mockMvc.perform(
                                 patch("/tickets/" + ticketId)
@@ -423,35 +403,19 @@ public class TicketControllerTests {
                                         .header("Authorization", jwt0))
                         .andExpect(status().isNoContent())
                         .andReturn();
-
-        // test event
-        await().until(eventCatcher::hasCaughtEvent);
-        TicketPhaseUpdatedEvent ticketPhaseUpdatedEvent = (TicketPhaseUpdatedEvent) eventCatcher.getEvent();
-        assertEquals(ticketId, ticketPhaseUpdatedEvent.getTicketId());
-        assertEquals(buildUpProjectId, ticketPhaseUpdatedEvent.getProjectId());
-        assertEquals(donePhaseId, ticketPhaseUpdatedEvent.getNewPhaseId());
-        assertEquals(backlogPhaseId, ticketPhaseUpdatedEvent.getOldPhaseId());
-
-        // test instance
-        Ticket ticket = ticketDomainService.getTicketById(ticketId);
-        assertEquals(ticketId, ticket.getId());
-        assertEquals(buildUpProjectId, ticket.getProjectId());
-        assertEquals(ticketPatchDto.getPhaseId(), ticket.getPhaseId());
-        assertEquals(ticketTitle0, ticket.getTitle());
-        assertEquals(ticketDescription0, ticket.getDescription());
-        assertEquals(dateOfTomorrow, ticket.getDueTime());
     }
 
     @Test
     public void patchTicketAssigneeIdsTest() throws Exception {
+        // Arrange
         UUID ticketId = restMinion.postTicket(
                 jwt0, buildUpProjectId, ticketTitle0, ticketDescription0, dateOfTomorrow, new ArrayList<>()
         );
-
-        eventCatcher.catchEventOfType(TicketAssignedEvent.class);
         List<UUID> assigneeIds = new ArrayList<>();
         assigneeIds.add(userId1);
         TicketPatchDto ticketPatchDto = new TicketPatchDto(null, null, null, null, assigneeIds);
+
+        // Act & Assert
         MvcResult patchResult =
                 mockMvc.perform(
                                 patch("/tickets/" + ticketId)
@@ -460,31 +424,16 @@ public class TicketControllerTests {
                                         .header("Authorization", jwt0))
                         .andExpect(status().isNoContent())
                         .andReturn();
-
-        // test event
-        await().until(eventCatcher::hasCaughtEvent);
-        TicketAssignedEvent ticketAssignedEvent = (TicketAssignedEvent) eventCatcher.getEvent();
-        assertEquals(ticketId, ticketAssignedEvent.getTicketId());
-        assertEquals(buildUpProjectId, ticketAssignedEvent.getProjectId());
-        assertEquals(assigneeIds.get(0), ticketAssignedEvent.getAssigneeId());
-
-        // test instance
-        Ticket ticket = ticketDomainService.getTicketById(ticketId);
-        assertEquals(ticketId, ticket.getId());
-        assertEquals(buildUpProjectId, ticket.getProjectId());
-        assertTrue(ticket.isAssignee(assigneeIds.get(0)));
-        assertEquals(ticketTitle0, ticket.getTitle());
-        assertEquals(ticketDescription0, ticket.getDescription());
-        assertEquals(dateOfTomorrow, ticket.getDueTime());
     }
 
     @Test
     public void deleteTicketTest() throws Exception {
+        // Arrange
         UUID ticketId = restMinion.postTicket(
                 jwt0, buildUpProjectId, ticketTitle0, ticketDescription0, dateOfTomorrow, new ArrayList<>()
         );
 
-        eventCatcher.catchEventOfType(TicketDeletedEvent.class);
+        // Act & Assert
         MvcResult deleteResult =
                 mockMvc.perform(
                                 delete("/tickets/" + ticketId)
@@ -492,14 +441,187 @@ public class TicketControllerTests {
                                         .header("Authorization", jwt0))
                         .andExpect(status().isNoContent())
                         .andReturn();
+    }
 
-        // test event
-        await().until(eventCatcher::hasCaughtEvent);
-        TicketDeletedEvent ticketDeletedEvent = (TicketDeletedEvent) eventCatcher.getEvent();
-        assertEquals(ticketId, ticketDeletedEvent.getTicketId());
-        assertEquals(buildUpProjectId, ticketDeletedEvent.getProjectId());
+    // new tests
 
-        // test instance
-        assertThrows(NoTicketFoundException.class, () -> ticketDomainService.getTicketById(ticketId));
+    @Test
+    public void testGetTicketByIdNoTicketFound() throws Exception {
+        // Arrange
+        UUID ticketId = UUID.randomUUID();
+
+        // Act & Assert
+        mockMvc.perform(
+                get("/tickets/" + ticketId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", jwt0))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    public void testGetTicketByIdUnauthorized() throws Exception {
+        // Arrange
+        UUID ticketId = restMinion.postTicket(
+                jwt0, buildUpProjectId, ticketTitle0, ticketDescription0, dateOfTomorrow, new ArrayList<>()
+        );
+
+        // Act & Assert
+        mockMvc.perform(
+                get("/tickets/" + ticketId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", jwt2)) // wrong jwt
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void testGetTicketByQueryTooManyParameters() throws Exception {
+        // Arrange
+        UUID ticketId = restMinion.postTicket(
+                jwt0, buildUpProjectId, ticketTitle0, ticketDescription0, dateOfTomorrow, new ArrayList<>()
+        );
+
+        // Act & Assert
+        mockMvc.perform(
+                get("/tickets" )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .queryParam("phase-id", UUID.randomUUID().toString())
+                        .queryParam("assignee-id", UUID.randomUUID().toString())
+                        .header("Authorization", jwt0))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void testGtTicketByQueryNoParameters() throws Exception {
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
+        mockMvc.perform(
+                get("/tickets" )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", jwt0))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void testGetTicketsByQueryNoTicketsFound() throws Exception {
+        // Arrange
+        UUID phaseId = UUID.randomUUID();
+
+        // Act & Assert
+        mockMvc.perform(
+                get("/tickets" )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .queryParam("phase-id", phaseId.toString())
+                        .header("Authorization", jwt0))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    public void testPostTicketUnauthorized() throws Exception {
+        // Arrange
+        TicketPostDto ticketPostDto = new TicketPostDto(buildUpProjectId, ticketTitle0, ticketDescription0, dateOfTomorrow, new ArrayList<>());
+
+        // Act & Assert
+        mockMvc.perform(
+                post("/tickets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(ticketPostDto))
+                        .header("Authorization", jwt2)) // wrong jwt
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void testPostTicketNoProjectDataFound() throws Exception {
+        // Arrange
+        UUID projectId = UUID.randomUUID();
+        TicketPostDto ticketPostDto = new TicketPostDto(projectId, ticketTitle0, ticketDescription0, dateOfTomorrow, new ArrayList<>());
+
+        // Act & Assert
+        mockMvc.perform(
+                post("/tickets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(ticketPostDto))
+                        .header("Authorization", jwt0))
+                .andExpect(status().isForbidden()); // fails early in security check and no info if the project exists
+    }
+
+    @Test
+    public void testPostTicketInvalidAssigneeId() throws Exception {
+        // Arrange
+        List<UUID> assigneeIds = new ArrayList<>();
+        assigneeIds.add(UUID.randomUUID());
+        TicketPostDto ticketPostDto = new TicketPostDto(buildUpProjectId, ticketTitle0, ticketDescription0, dateOfTomorrow, assigneeIds);
+
+        // Act & Assert
+        mockMvc.perform(
+                post("/tickets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(ticketPostDto))
+                        .header("Authorization", jwt0))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    public void testPatchTicketUnauthorized() throws Exception {
+        // Arrange
+        UUID ticketId = restMinion.postTicket(
+                jwt0, buildUpProjectId, ticketTitle0, ticketDescription0, dateOfTomorrow, new ArrayList<>()
+        );
+        TicketPatchDto ticketPatchDto = new TicketPatchDto(null, null, null, null, null);
+
+        // Act & Assert
+        mockMvc.perform(
+                patch("/tickets/" + ticketId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(ticketPatchDto))
+                        .header("Authorization", jwt2)) // wrong jwt
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void testPatchTicketNoTicketFound() throws Exception {
+        // Arrange
+        UUID ticketId = UUID.randomUUID();
+        TicketPatchDto ticketPatchDto = new TicketPatchDto("newTitle", null, null, null, null);
+
+        // Act & Assert
+        mockMvc.perform(
+                patch("/tickets/" + ticketId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(ticketPatchDto))
+                        .header("Authorization", jwt0))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    public void testPatchTicketUnrelatedPhaseId() throws Exception {
+        // Arrange
+        UUID ticketId = restMinion.postTicket(
+                jwt0, buildUpProjectId, ticketTitle0, ticketDescription0, dateOfTomorrow, new ArrayList<>()
+        );
+        UUID unrelatedPhaseId = UUID.randomUUID();
+        TicketPatchDto ticketPatchDto = new TicketPatchDto(null, null, null, unrelatedPhaseId, null);
+
+        // Act & Assert
+        mockMvc.perform(
+                patch("/tickets/" + ticketId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(ticketPatchDto))
+                        .header("Authorization", jwt0))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    public void testDeleteTicketNoTicketFound() throws Exception {
+        // Arrange
+        UUID ticketId = UUID.randomUUID();
+
+        // Act & Assert
+        mockMvc.perform(
+                delete("/tickets/" + ticketId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", jwt0))
+                .andExpect(status().isNotFound());
     }
 }

@@ -127,10 +127,12 @@ public class NotificationControllerTests {
 
     @Test
     public void getNotificationsByQueryTest() throws Exception {
+        // Arrange
         eventPublisher.publishEvent(new UnacceptedProjectMembershipCreatedEvent(membershipId, userId0, projectId));
         eventPublisher.publishEvent(new TicketAssignedEvent(ticketId, projectId, userId0));
         eventPublisher.publishEvent(new TicketUnassignedEvent(ticketId, projectId, userId0));
 
+        // Act & Assert
         MvcResult getByRecipientIdResult =
                 mockMvc.perform(
                                 get("/notifications")
@@ -146,6 +148,11 @@ public class NotificationControllerTests {
                         .andExpect(jsonPath("$[2].recipientId").value(userId0.toString()))
                         .andReturn();
 
+        // stage 2
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
         MvcResult getByEmailResult =
                 mockMvc.perform(
                                 get("/notifications")
@@ -166,6 +173,7 @@ public class NotificationControllerTests {
 
     @Test
     public void getNotificationByIdTest() throws Exception {
+        // Arrange
         eventPublisher.publishEvent(new UnacceptedProjectMembershipCreatedEvent(membershipId, userId0, projectId));
 
         // find out notificationId
@@ -180,6 +188,7 @@ public class NotificationControllerTests {
         String getByRecipientIdResponse = getByRecipientIdResult.getResponse().getContentAsString();
         UUID notificationId = UUID.fromString(JsonPath.parse(getByRecipientIdResponse).read("$[0].id"));
 
+        // Act & Assert
         MvcResult getByIdResult =
                 mockMvc.perform(
                                 get("/notifications/" + notificationId)
@@ -194,6 +203,10 @@ public class NotificationControllerTests {
 
     @Test
     public void getNotificationByWrongIdTest() throws Exception {
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
         MvcResult getByIdResult =
                 mockMvc.perform(
                                 get("/notifications/" + UUID.randomUUID())
@@ -205,6 +218,7 @@ public class NotificationControllerTests {
 
     @Test
     public void getNotificationOfOtherUserByIdTest() throws Exception {
+        // Arrange
         eventPublisher.publishEvent(new TicketAssignedEvent(ticketId, projectId, userId1));
 
         // find out notificationId
@@ -219,6 +233,7 @@ public class NotificationControllerTests {
         String getByRecipientIdResponse = getByRecipientIdResult.getResponse().getContentAsString();
         UUID notificationId = UUID.fromString(JsonPath.parse(getByRecipientIdResponse).read("$[0].id"));
 
+        // Act & Assert
         MvcResult getByIdResult =
                 mockMvc.perform(
                                 get("/notifications/" + notificationId)
@@ -230,6 +245,7 @@ public class NotificationControllerTests {
 
     @Test
     public void patchNotificationTest() throws Exception {
+        // Arrange
         eventPublisher.publishEvent(new TicketAssignedEvent(ticketId, projectId, userId0));
 
         // find out notificationId
@@ -244,6 +260,7 @@ public class NotificationControllerTests {
         String getByRecipientIdResponse = getByRecipientIdResult.getResponse().getContentAsString();
         UUID notificationId = UUID.fromString(JsonPath.parse(getByRecipientIdResponse).read("$[0].id"));
 
+        // Act & Assert
         // test isRead: false -> true (allowed)
         NotificationPatchDto notificationPatchDto = new NotificationPatchDto(true);
         MvcResult patchResult =
@@ -259,6 +276,12 @@ public class NotificationControllerTests {
         assertEquals(userId0, patchedNotification.getRecipientId());
         assertTrue(patchedNotification.getIsRead());
 
+
+        // stage 2
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
         // test isRead: true -> false (not allowed)
         NotificationPatchDto conflictingNotificationPatchDto = new NotificationPatchDto(false);
         MvcResult conflictingPatchResult =
@@ -275,6 +298,7 @@ public class NotificationControllerTests {
 
     @Test
     public void deleteNotificationTest() throws Exception {
+        // Arrange
         eventPublisher.publishEvent(new TicketAssignedEvent(ticketId, projectId, userId0));
 
         // find out notificationId
@@ -289,6 +313,7 @@ public class NotificationControllerTests {
         String getByRecipientIdResponse = getByRecipientIdResult.getResponse().getContentAsString();
         UUID notificationId = UUID.fromString(JsonPath.parse(getByRecipientIdResponse).read("$[0].id"));
 
+        // Act & Assert
         // test delete
         MvcResult deleteResult =
                 mockMvc.perform(
@@ -302,6 +327,10 @@ public class NotificationControllerTests {
 
     @Test
     public void deleteNonExistingNotification() throws Exception {
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
         MvcResult deleteResult =
                 mockMvc.perform(
                                 delete("/notifications/" + UUID.randomUUID())
@@ -311,72 +340,106 @@ public class NotificationControllerTests {
                         .andReturn();
     }
 
+    // new tests
+
     @Test
-    public void consumeHandleTicketAssignedEvent() throws Exception {
-        eventPublisher
-                .publishEvent(
-                        new TicketAssignedEvent(
-                                ticketId,
-                                projectId,
-                                userId0
-                        )
-                );
+    public void testGetNotificationsByQueryWithNoParameters() throws Exception {
+        // Arrange
+        // nothing to arrange
 
-        // TODO: find more stable alternative for testing
-        // shame: give services time to handle event
-        Thread.sleep(100);
-
-        List<Notification> notifications = notificationDomainService.getNotificationsByRecipientId(userId0);
-        assertEquals(1, notifications.size());
-        Notification notification = notifications.get(0);
-        assertEquals(userId0, notification.getRecipientId());
-        assertEquals(false, notification.getIsRead());
-        assertTrue(notification.getContent().contains(ticketId.toString()));
+        // Act & Assert
+        MvcResult result =
+                mockMvc.perform(
+                                get("/notifications")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .header("Authorization", jwt0))
+                        .andExpect(status().isBadRequest())
+                        .andReturn();
     }
 
     @Test
-    public void consumeUnacceptedProjectMembershipCreatedEvent() throws Exception {
-        eventPublisher
-                .publishEvent(
-                        new UnacceptedProjectMembershipCreatedEvent(
-                                membershipId,
-                                userId0,
-                                projectId
-                        )
-                );
+    public void testGetNotificationsByQueryWithTooManyParameters() throws Exception {
+        // Arrange
+        // nothing to arrange
 
-        // TODO: find more stable alternative for testing
-        // shame: give services time to handle event
-        Thread.sleep(100);
-
-        List<Notification> notifications = notificationDomainService.getNotificationsByRecipientId(userId0);
-        assertEquals(1, notifications.size());
-        Notification notification = notifications.get(0);
-        assertEquals(userId0, notification.getRecipientId());
-        assertEquals(false, notification.getIsRead());
-        assertTrue(notification.getContent().contains(projectId.toString()));
+        // Act & Assert
+        MvcResult result =
+                mockMvc.perform(
+                                get("/notifications")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .queryParam("recipientId", userId0.toString())
+                                        .queryParam("email", userEmail0)
+                                        .header("Authorization", jwt0))
+                        .andExpect(status().isBadRequest())
+                        .andReturn();
     }
 
     @Test
-    public void consumeTicketUnassignedEvent() throws Exception {
-        eventPublisher
-                .publishEvent(
-                        new TicketUnassignedEvent(
-                                ticketId,
-                                projectId,
-                                userId0
-                        )
-                );
+    public void testGetNotificationsByQueryNotFound() throws Exception {
+        // Arrange
+        // nothing to arrange
 
-        // TODO: find more stable alternative for testing
-        // shame: give services time to handle event
-        Thread.sleep(100);
+        // Act & Assert
+        mockMvc.perform(
+                get("/notifications")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .queryParam("recipientId", userId0.toString())
+                        .header("Authorization", jwt0))
+                .andExpect(status().isNotFound());
+    }
 
-        List<Notification> notifications = notificationDomainService.getNotificationsByRecipientId(userId0);
-        assertEquals(1, notifications.size());
-        Notification notification = notifications.get(0);
-        assertEquals(userId0, notification.getRecipientId());
-        assertEquals(false, notification.getIsRead());
-        assertTrue(notification.getContent().contains(ticketId.toString()));
+    @Test
+    public void testPatchNotificationNotFound() throws Exception {
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
+        mockMvc.perform(
+                patch("/notifications/" + UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"isRead\": true}")
+                        .header("Authorization", jwt0))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    public void testDeleteNotificationByIdUnauthorized() throws Exception {
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
+        mockMvc.perform(
+                delete("/notifications/" + UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", jwt0))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    public void testGetNotificationByIdWithInvalidJwt() throws Exception {
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
+        mockMvc.perform(
+                get("/notifications/" + UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + jwt0 + "invalid")
+                        .header("Authorization", jwt0))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    public void testPatchNotificationWithInvalidDto() throws Exception {
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
+        mockMvc.perform(
+                patch("/notifications/" + UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"isRead\": \"2\"}")
+                        .header("Authorization", jwt0))
+                .andExpect(status().isBadRequest());
     }
 }

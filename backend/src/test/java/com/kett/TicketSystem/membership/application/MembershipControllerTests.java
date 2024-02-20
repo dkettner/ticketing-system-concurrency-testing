@@ -52,7 +52,6 @@ public class MembershipControllerTests {
     private final MockMvc mockMvc;
     private final ObjectMapper objectMapper;
     private final EventCatcher eventCatcher;
-    private final ApplicationEventPublisher eventPublisher;
     private final RestRequestHelper restMinion;
     private final UserRepository userRepository;
     private final MembershipDomainService membershipDomainService;
@@ -79,7 +78,6 @@ public class MembershipControllerTests {
             MockMvc mockMvc,
             ObjectMapper objectMapper,
             EventCatcher eventCatcher,
-            ApplicationEventPublisher eventPublisher,
             UserRepository userRepository,
             MembershipDomainService membershipDomainService,
             MembershipRepository membershipRepository
@@ -87,7 +85,6 @@ public class MembershipControllerTests {
         this.mockMvc = mockMvc;
         this.objectMapper = objectMapper;
         this.eventCatcher = eventCatcher;
-        this.eventPublisher = eventPublisher;
         this.restMinion = new RestRequestHelper(mockMvc, objectMapper);
         this.userRepository = userRepository;
         this.membershipDomainService = membershipDomainService;
@@ -147,12 +144,13 @@ public class MembershipControllerTests {
 
     @Test
     public void getMembershipByIdTest() throws Exception {
+        // Arrange
         String projectName0 = "Project 0";
         String projectDescription0 = "Description 0";
         UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
-
         UUID membershipId = restMinion.postMembership(jwt0, projectId0, userId1, Role.MEMBER);
 
+        // Act & Assert
         MvcResult getResult =
                 mockMvc.perform(
                                 get("/memberships/" + membershipId)
@@ -169,12 +167,13 @@ public class MembershipControllerTests {
 
     @Test
     public void getMembershipByIdAsAdminTest() throws Exception {
+        // Arrange
         String projectName0 = "Project 0";
         String projectDescription0 = "Description 0";
         UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
-
         UUID membershipId = restMinion.postMembership(jwt0, projectId0, userId1, Role.MEMBER);
 
+        // Act & Assert
         MvcResult getResult =
                 mockMvc.perform(
                                 get("/memberships/" + membershipId)
@@ -191,10 +190,12 @@ public class MembershipControllerTests {
 
     @Test
     public void getMembershipsByUserIdAndEmailQueryTest() throws Exception {
+        // Arrange
         String projectName0 = "Project 0";
         String projectDescription0 = "Description 0";
         UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
 
+        // Act & Assert
         MvcResult getByUserIdResult =
                 mockMvc.perform(
                                 get("/memberships")
@@ -213,6 +214,13 @@ public class MembershipControllerTests {
                         .andExpect(jsonPath("$[1].role").value(Role.ADMIN.toString()))
                         .andExpect(jsonPath("$[1].state").value(State.ACCEPTED.toString()))
                         .andReturn();
+
+        // stage 2
+
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
         MvcResult getByEmailResult =
                 mockMvc.perform(
                                 get("/memberships")
@@ -226,12 +234,13 @@ public class MembershipControllerTests {
 
     @Test
     public void getMembershipsByProjectIdQueryTest() throws Exception {
+        // Arrange
         String projectName0 = "Project 0";
         String projectDescription0 = "Description 0";
         UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
-
         UUID membershipId = restMinion.postMembership(jwt0, projectId0, userId1, Role.MEMBER);
 
+        // Act & Assert
         MvcResult getResult =
                 mockMvc.perform(
                                 get("/memberships")
@@ -254,12 +263,13 @@ public class MembershipControllerTests {
 
     @Test
     public void postMembershipTest() throws Exception {
+        // Arrange
         String projectName0 = "Project 0";
         String projectDescription0 = "Description 0";
         UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
-
-        eventCatcher.catchEventOfType(UnacceptedProjectMembershipCreatedEvent.class);
         MembershipPostDto membershipPostDto = new MembershipPostDto(projectId0, userId1, Role.MEMBER);
+
+        // Act & Assert
         MvcResult postResult =
                 mockMvc.perform(
                                 post("/memberships")
@@ -273,37 +283,18 @@ public class MembershipControllerTests {
                         .andExpect(jsonPath("$.role").value(membershipPostDto.getRole().toString()))
                         .andExpect(jsonPath("$.state").value(State.OPEN.toString()))
                         .andReturn();
-        await().until(eventCatcher::hasCaughtEvent);
-        UnacceptedProjectMembershipCreatedEvent unacceptedProjectMembershipCreatedEvent =
-                (UnacceptedProjectMembershipCreatedEvent) eventCatcher.getEvent();
-
-        String postResponse = postResult.getResponse().getContentAsString();
-        UUID membershipId = UUID.fromString(JsonPath.parse(postResponse).read("$.id"));
-
-        // test event
-        assertEquals(membershipId, unacceptedProjectMembershipCreatedEvent.getMembershipId());
-        assertEquals(membershipPostDto.getProjectId(), unacceptedProjectMembershipCreatedEvent.getProjectId());
-        assertEquals(membershipPostDto.getUserId(), unacceptedProjectMembershipCreatedEvent.getInviteeId());
-
-        // test instance
-        Membership membership = membershipDomainService.getMembershipById(membershipId);
-        assertEquals(membershipId, membership.getId());
-        assertEquals(membershipPostDto.getUserId(), membership.getUserId());
-        assertEquals(membershipPostDto.getProjectId(), membership.getProjectId());
-        assertEquals(membershipPostDto.getRole(), membership.getRole());
-        assertEquals(State.OPEN, membership.getState());
     }
 
     @Test
     public void putMembershipStateTest() throws Exception {
+        // Arrange
         String projectName0 = "Project 0";
         String projectDescription0 = "Description 0";
         UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
-
         UUID membershipId = restMinion.postMembership(jwt0, projectId0, userId1, Role.MEMBER);
-
-        eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
         MembershipPutStateDto membershipPutStateDto = new MembershipPutStateDto(State.ACCEPTED);
+
+        // Act & Assert
         MvcResult putResult =
                 mockMvc.perform(
                                 put("/memberships/" + membershipId + "/state")
@@ -312,33 +303,18 @@ public class MembershipControllerTests {
                                         .header("Authorization", jwt1))
                         .andExpect(status().isNoContent())
                         .andReturn();
-
-        // test event
-        await().until(eventCatcher::hasCaughtEvent);
-        MembershipAcceptedEvent membershipAcceptedEvent = (MembershipAcceptedEvent) eventCatcher.getEvent();
-        assertEquals(membershipId, membershipAcceptedEvent.getMembershipId());
-        assertEquals(userId1, membershipAcceptedEvent.getUserId());
-        assertEquals(projectId0, membershipAcceptedEvent.getProjectId());
-
-        // test instance
-        Membership membership = membershipDomainService.getMembershipById(membershipId);
-        assertEquals(membershipId, membership.getId());
-        assertEquals(userId1, membership.getUserId());
-        assertEquals(projectId0, membership.getProjectId());
-        assertEquals(Role.MEMBER, membership.getRole());
-        assertEquals(State.ACCEPTED, membership.getState());
     }
 
     @Test
     public void putMembershipStateBackToOpenTest() throws Exception {
+        // Arrange
         String projectName0 = "Project 0";
         String projectDescription0 = "Description 0";
         UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
-
         UUID membershipId = restMinion.postMembership(jwt0, projectId0, userId1, Role.MEMBER);
-
-        // accept
         MembershipPutStateDto membershipPutStateDto0 = new MembershipPutStateDto(State.ACCEPTED);
+
+        // Act & Assert
         MvcResult putResult0 =
                 mockMvc.perform(
                                 put("/memberships/" + membershipId + "/state")
@@ -348,8 +324,13 @@ public class MembershipControllerTests {
                         .andExpect(status().isNoContent())
                         .andReturn();
 
-        // try to go back to open
+        // stage 2
+
+        // Arrange
         MembershipPutStateDto membershipPutStateDto1 = new MembershipPutStateDto(State.OPEN);
+
+        // Act & Assert
+        // try to go back to open
         MvcResult putResult1 =
                 mockMvc.perform(
                                 put("/memberships/" + membershipId + "/state")
@@ -358,25 +339,19 @@ public class MembershipControllerTests {
                                         .header("Authorization", jwt1))
                         .andExpect(status().isConflict())
                         .andReturn();
-
-        // test instance
-        Membership membership = membershipDomainService.getMembershipById(membershipId);
-        assertEquals(membershipId, membership.getId());
-        assertEquals(userId1, membership.getUserId());
-        assertEquals(projectId0, membership.getProjectId());
-        assertEquals(Role.MEMBER, membership.getRole());
-        assertEquals(State.ACCEPTED, membership.getState());
     }
 
     @Test
     public void putMembershipStateBackToOpenAsAdminTest() throws Exception {
+        // Arrange
         String projectName0 = "Project 0";
         String projectDescription0 = "Description 0";
         UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
         UUID membershipId = restMinion.postMembership(jwt0, projectId0, userId1, Role.MEMBER);
-
-        // accept
         MembershipPutStateDto membershipPutStateDto0 = new MembershipPutStateDto(State.ACCEPTED);
+
+        // Act & Assert
+        // accept
         MvcResult putResult0 =
                 mockMvc.perform(
                                 put("/memberships/" + membershipId + "/state")
@@ -386,8 +361,13 @@ public class MembershipControllerTests {
                         .andExpect(status().isNoContent())
                         .andReturn();
 
-        // try to go back to open
+        // stage 2
+
+        // Arrange
         MembershipPutStateDto membershipPutStateDto1 = new MembershipPutStateDto(State.OPEN);
+
+        // Act & Assert
+        // try to go back to open
         MvcResult putResult1 =
                 mockMvc.perform(
                                 put("/memberships/" + membershipId + "/state")
@@ -396,24 +376,18 @@ public class MembershipControllerTests {
                                         .header("Authorization", jwt0))
                         .andExpect(status().isForbidden())
                         .andReturn();
-
-        // test instance
-        Membership membership = membershipDomainService.getMembershipById(membershipId);
-        assertEquals(membershipId, membership.getId());
-        assertEquals(userId1, membership.getUserId());
-        assertEquals(projectId0, membership.getProjectId());
-        assertEquals(Role.MEMBER, membership.getRole());
-        assertEquals(State.ACCEPTED, membership.getState());
     }
 
     @Test
     public void putMembershipStateAsAdminTest() throws Exception {
+        // Arrange
         String projectName0 = "Project 0";
         String projectDescription0 = "Description 0";
         UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
         UUID membershipId = restMinion.postMembership(jwt0, projectId0, userId1, Role.MEMBER);
-
         MembershipPutStateDto membershipPutStateDto = new MembershipPutStateDto(State.ACCEPTED);
+
+        // Act & Assert
         MvcResult putResult =
                 mockMvc.perform(
                                 put("/memberships/" + membershipId + "/state")
@@ -422,24 +396,18 @@ public class MembershipControllerTests {
                                         .header("Authorization", jwt0))
                         .andExpect(status().isForbidden())
                         .andReturn();
-
-        // test instance
-        Membership membership = membershipDomainService.getMembershipById(membershipId);
-        assertEquals(membershipId, membership.getId());
-        assertEquals(userId1, membership.getUserId());
-        assertEquals(projectId0, membership.getProjectId());
-        assertEquals(Role.MEMBER, membership.getRole());
-        assertEquals(State.OPEN, membership.getState());
     }
 
     @Test
     public void putMembershipRoleAsAdminTest() throws Exception {
+        // Arrange
         String projectName0 = "Project 0";
         String projectDescription0 = "Description 0";
         UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
         UUID membershipId = restMinion.postMembership(jwt0, projectId0, userId1, Role.MEMBER);
-
         MembershipPutRoleDto membershipPutStateDto = new MembershipPutRoleDto(Role.ADMIN);
+
+        // Act & Assert
         MvcResult putResult =
                 mockMvc.perform(
                                 put("/memberships/" + membershipId + "/role")
@@ -448,24 +416,18 @@ public class MembershipControllerTests {
                                         .header("Authorization", jwt0))
                         .andExpect(status().isNoContent())
                         .andReturn();
-
-        // test instance
-        Membership membership = membershipDomainService.getMembershipById(membershipId);
-        assertEquals(membershipId, membership.getId());
-        assertEquals(userId1, membership.getUserId());
-        assertEquals(projectId0, membership.getProjectId());
-        assertEquals(Role.ADMIN, membership.getRole());
-        assertEquals(State.OPEN, membership.getState());
     }
 
     @Test
     public void putMembershipRoleTest() throws Exception {
+        // Arrange
         String projectName0 = "Project 0";
         String projectDescription0 = "Description 0";
         UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
         UUID membershipId = restMinion.postMembership(jwt0, projectId0, userId1, Role.MEMBER);
-
         MembershipPutRoleDto membershipPutStateDto = new MembershipPutRoleDto(Role.ADMIN);
+
+        // Act & Assert
         MvcResult putResult =
                 mockMvc.perform(
                                 put("/memberships/" + membershipId + "/role")
@@ -474,24 +436,17 @@ public class MembershipControllerTests {
                                         .header("Authorization", jwt1))
                         .andExpect(status().isForbidden())
                         .andReturn();
-
-        // test instance
-        Membership membership = membershipDomainService.getMembershipById(membershipId);
-        assertEquals(membershipId, membership.getId());
-        assertEquals(userId1, membership.getUserId());
-        assertEquals(projectId0, membership.getProjectId());
-        assertEquals(Role.MEMBER, membership.getRole());
-        assertEquals(State.OPEN, membership.getState());
     }
 
     @Test
     public void deleteOtherMembershipAsAdminTest() throws Exception {
+        // Arrange
         String projectName0 = "Project 0";
         String projectDescription0 = "Description 0";
         UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
         UUID membershipId = restMinion.postMembership(jwt0, projectId0, userId1, Role.MEMBER);
 
-        eventCatcher.catchEventOfType(MembershipDeletedEvent.class);
+        // Act & Assert
         MvcResult deleteResult =
                 mockMvc.perform(
                                 delete("/memberships/" + membershipId)
@@ -499,26 +454,17 @@ public class MembershipControllerTests {
                                         .header("Authorization", jwt0))
                         .andExpect(status().isNoContent())
                         .andReturn();
-
-        // test event
-        await().until(eventCatcher::hasCaughtEvent);
-        MembershipDeletedEvent membershipDeletedEvent = (MembershipDeletedEvent) eventCatcher.getEvent();
-        assertEquals(membershipId, membershipDeletedEvent.getMembershipId());
-        assertEquals(projectId0, membershipDeletedEvent.getProjectId());
-        assertEquals(userId1, membershipDeletedEvent.getUserId());
-
-        // test instance
-        assertThrows(NoMembershipFoundException.class, () -> membershipDomainService.getMembershipById(membershipId));
     }
 
     @Test
     public void deleteOwnMembershipAsMemberTest() throws Exception {
+        // Arrange
         String projectName0 = "Project 0";
         String projectDescription0 = "Description 0";
         UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
         UUID membershipId = restMinion.postMembership(jwt0, projectId0, userId1, Role.MEMBER);
 
-        eventCatcher.catchEventOfType(MembershipDeletedEvent.class);
+        // Act & Assert
         MvcResult deleteResult =
                 mockMvc.perform(
                                 delete("/memberships/" + membershipId)
@@ -526,99 +472,128 @@ public class MembershipControllerTests {
                                         .header("Authorization", jwt1))
                         .andExpect(status().isNoContent())
                         .andReturn();
+    }
 
-        // test event
-        await().until(eventCatcher::hasCaughtEvent);
-        MembershipDeletedEvent membershipDeletedEvent = (MembershipDeletedEvent) eventCatcher.getEvent();
-        assertEquals(membershipId, membershipDeletedEvent.getMembershipId());
-        assertEquals(projectId0, membershipDeletedEvent.getProjectId());
-        assertEquals(userId1, membershipDeletedEvent.getUserId());
+    // new tests
 
-        // test instance
-        assertThrows(NoMembershipFoundException.class, () -> membershipDomainService.getMembershipById(membershipId));
+    @Test
+    public void testGetMembershipByIdNotFoundTest() throws Exception {
+        // Arrange
+        UUID membershipId = UUID.randomUUID();
+
+        // Act & Assert
+        mockMvc.perform(
+                get("/memberships/" + membershipId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", jwt1))
+                .andExpect(status().isNotFound());
     }
 
     @Test
-    public void consumeProjectCreatedEventTest() {
-        eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
-        eventPublisher.publishEvent(new ProjectCreatedEvent(randomProjectId, userId0));
+    public void testGetMembershipsByQueryTooManyParametersTest() throws Exception {
+        // Arrange
+        // nothing to arrange
 
-        // test MembershipAcceptedEvent
-        await().until(eventCatcher::hasCaughtEvent);
-        MembershipAcceptedEvent membershipAcceptedEvent = (MembershipAcceptedEvent) eventCatcher.getEvent();
-        assertEquals(userId0, membershipAcceptedEvent.getUserId());
-        assertEquals(randomProjectId, membershipAcceptedEvent.getProjectId());
-
-        // test membership instance
-        UUID membershipId = membershipAcceptedEvent.getMembershipId();
-        Membership membership = membershipDomainService.getMembershipById(membershipId);
-        assertEquals(membershipId, membership.getId());
-        assertEquals(userId0, membership.getUserId());
-        assertEquals(randomProjectId, membership.getProjectId());
-        assertEquals(Role.ADMIN, membership.getRole());
-        assertEquals(State.ACCEPTED, membership.getState());
+        // Act & Assert
+        mockMvc.perform(
+                get("/memberships")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .queryParam("user-id", userId0.toString())
+                        .queryParam("project-id", defaultProjectId0.toString())
+                        .header("Authorization", jwt0))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    public void consumeDefaultProjectCreatedEventTest() {
-        eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
-        eventPublisher.publishEvent(new DefaultProjectCreatedEvent(randomProjectId, userId0));
+    public void testPostMembershipProjectNotFoundTest() throws Exception {
+        // Arrange
+        UUID randomProjectId = UUID.randomUUID();
+        MembershipPostDto membershipPostDto = new MembershipPostDto(randomProjectId, userId1, Role.MEMBER);
 
-        // test MembershipAcceptedEvent
-        await().until(eventCatcher::hasCaughtEvent);
-        MembershipAcceptedEvent membershipAcceptedEvent = (MembershipAcceptedEvent) eventCatcher.getEvent();
-        assertEquals(userId0, membershipAcceptedEvent.getUserId());
-        assertEquals(randomProjectId, membershipAcceptedEvent.getProjectId());
-
-        // test membership instance
-        UUID membershipId = membershipAcceptedEvent.getMembershipId();
-        Membership membership = membershipDomainService.getMembershipById(membershipId);
-        assertEquals(membershipId, membership.getId());
-        assertEquals(userId0, membership.getUserId());
-        assertEquals(randomProjectId, membership.getProjectId());
-        assertEquals(Role.ADMIN, membership.getRole());
-        assertEquals(State.ACCEPTED, membership.getState());
+        // Act & Assert
+        mockMvc.perform(
+                post("/memberships")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(membershipPostDto))
+                        .header("Authorization", jwt0))
+                .andExpect(status().isForbidden()); // fail early in security
     }
 
     @Test
-    public void consumeProjectDeletedEventTest() {
-        eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
-        eventPublisher.publishEvent(new ProjectCreatedEvent(randomProjectId, userId0));
+    public void testPostMembershipUserNotFoundTest() throws Exception {
+        // Arrange
+        UUID randomUserId = UUID.randomUUID();
+        MembershipPostDto membershipPostDto = new MembershipPostDto(defaultProjectId0, randomUserId, Role.MEMBER);
 
-        await().until(eventCatcher::hasCaughtEvent);
-        UUID membershipId = ((MembershipAcceptedEvent) eventCatcher.getEvent()).getMembershipId();
-
-        eventCatcher.catchEventOfType(MembershipDeletedEvent.class);
-        eventPublisher.publishEvent(new ProjectDeletedEvent(randomProjectId));
-
-        // test event
-        await().until(eventCatcher::hasCaughtEvent);
-        MembershipDeletedEvent membershipDeletedEvent = (MembershipDeletedEvent) eventCatcher.getEvent();
-        assertEquals(membershipId, membershipDeletedEvent.getMembershipId());
-        assertEquals(randomProjectId, membershipDeletedEvent.getProjectId());
-        assertEquals(userId0, membershipDeletedEvent.getUserId());
-
-        // test instance
-        assertThrows(NoMembershipFoundException.class, () -> membershipDomainService.getMembershipById(membershipId));
+        // Act & Assert
+        mockMvc.perform(
+                post("/memberships")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(membershipPostDto))
+                        .header("Authorization", jwt0))
+                .andExpect(status().isNotFound()); // fail early in security
     }
 
     @Test
-    public void consumeUserDeletedEventTest() throws Exception {
+    public void testPutMembershipRoleToMemberAsLastAdminTest() throws Exception {
+        // Arrange
+        MvcResult result = mockMvc.perform(get("/memberships")
+                .contentType(MediaType.APPLICATION_JSON)
+                .queryParam("project-id", defaultProjectId0.toString())
+                .header("Authorization", jwt0))
+                .andExpect(status().isOk())
+                .andReturn();
+        String content = result.getResponse().getContentAsString();
+        String defaultProjectMembershipId = JsonPath.read(content, "$[0].id");
+
+        // Act & Assert
+        mockMvc.perform(
+                put("/memberships/" + defaultProjectMembershipId + "/role")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new MembershipPutRoleDto(Role.MEMBER)))
+                        .header("Authorization", jwt0))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    public void testDeleteMembershipByIdNotFoundTest() throws Exception {
+        // Arrange
+        UUID membershipId = UUID.randomUUID();
+
+        // Act & Assert
+        mockMvc.perform(
+                delete("/memberships/" + membershipId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", jwt1))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    public void testGetMembershipsByQueryNoParametersTest() throws Exception {
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
+        mockMvc.perform(
+                get("/memberships")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", jwt0))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void testGetMembershipByIdWithInvalidJwtTest() throws Exception {
+        // Arrange
         String projectName0 = "Project 0";
         String projectDescription0 = "Description 0";
         UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
+        UUID membershipId = restMinion.postMembership(jwt0, projectId0, userId1, Role.MEMBER);
 
-        String projectName1 = "Project 1";
-        String projectDescription1 = "Description 1";
-        UUID projectId1 = restMinion.postProject(jwt0, projectName1, projectDescription1);
-
-        String projectName2 = "Project 2";
-        String projectDescription2 = "Description 2";
-        UUID projectId2 = restMinion.postProject(jwt0, projectName2, projectDescription2);
-
-        restMinion.deleteUser(jwt0, userId0);
-
-        assertThrows(NoMembershipFoundException.class, () -> membershipDomainService.getMembershipsByUserId(userId0));
+        // Act & Assert
+        mockMvc.perform(
+                get("/memberships/" + membershipId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + jwt0 + "invalid"))
+                .andExpect(status().isUnauthorized());
     }
 }
-

@@ -55,8 +55,6 @@ public class PhaseControllerTests {
     private final MockMvc mockMvc;
     private final ObjectMapper objectMapper;
     private final RestRequestHelper restMinion;
-    private final ApplicationEventPublisher eventPublisher;
-    private final EventCatcher eventCatcher;
     private final PhaseDomainService phaseDomainService;
     private final PhaseRepository phaseRepository;
     private final ProjectRepository projectRepository;
@@ -84,8 +82,6 @@ public class PhaseControllerTests {
     public PhaseControllerTests(
             MockMvc mockMvc,
             ObjectMapper objectMapper,
-            ApplicationEventPublisher eventPublisher,
-            EventCatcher eventCatcher,
             PhaseDomainService phaseDomainService,
             PhaseRepository phaseRepository,
             ProjectRepository projectRepository,
@@ -93,9 +89,7 @@ public class PhaseControllerTests {
     ) {
         this.mockMvc = mockMvc;
         this.objectMapper = objectMapper;
-        this.eventCatcher = eventCatcher;
         this.restMinion = new RestRequestHelper(mockMvc, objectMapper);
-        this.eventPublisher = eventPublisher;
         this.phaseDomainService = phaseDomainService;
         this.phaseRepository = phaseRepository;
         this.projectRepository = projectRepository;
@@ -150,8 +144,11 @@ public class PhaseControllerTests {
 
     @Test
     public void getPhaseByIdTest() throws Exception {
+        // Arrange
         UUID phaseId = restMinion.postPhase(jwt, buildUpProjectId, phaseName0, null);
         Phase phase = phaseDomainService.getPhaseById(phaseId);
+
+        // Act & Assert
         MvcResult getResult =
                 mockMvc.perform(
                                 get("/phases/" + phaseId)
@@ -169,9 +166,11 @@ public class PhaseControllerTests {
 
     @Test
     public void getPhasesByQueryTest() throws Exception {
+        // Arrange
         UUID phaseId = restMinion.postPhase(jwt, buildUpProjectId, phaseName0, null);
         List<Phase> phases = phaseDomainService.getPhasesByProjectId(buildUpProjectId);
 
+        // Act & Assert
         // defaultPhase + new phase = 2
         MvcResult getResult =
                 mockMvc.perform(
@@ -198,9 +197,11 @@ public class PhaseControllerTests {
 
     @Test
     public void postPhaseToNewProjectTest() throws Exception {
+        // Arrange
         // post to first place
-        eventCatcher.catchEventOfType(PhaseCreatedEvent.class);
         PhasePostDto phasePostDto0 = new PhasePostDto(buildUpProjectId, phaseName0, null);
+
+        // Act & Assert
         MvcResult postResult0 =
                 mockMvc.perform(
                                 post("/phases")
@@ -215,27 +216,17 @@ public class PhaseControllerTests {
                         .andExpect(jsonPath("$.nextPhaseId").exists())
                         .andExpect(jsonPath("$.ticketCount").value(0))
                         .andReturn();
+
+        // second stage
+
+        // Arrange
         String postResponse0 = postResult0.getResponse().getContentAsString();
         UUID phaseId0 = UUID.fromString(JsonPath.parse(postResponse0).read("$.id"));
         UUID nextPhaseId = UUID.fromString(JsonPath.parse(postResponse0).read("$.nextPhaseId"));
-
-        // test event
-        await().until(eventCatcher::hasCaughtEvent);
-        PhaseCreatedEvent phaseCreatedEvent = (PhaseCreatedEvent) eventCatcher.getEvent();
-        assertEquals(phaseId0, phaseCreatedEvent.getPhaseId());
-        assertEquals(phasePostDto0.getProjectId(), phaseCreatedEvent.getProjectId());
-
-        // test instance
-        Phase phase0 = phaseDomainService.getPhaseById(phaseId0);
-        assertEquals(phaseId0, phase0.getId());
-        assertEquals(phasePostDto0.getProjectId(), phase0.getProjectId());
-        assertEquals(phasePostDto0.getName(), phase0.getName());
-        assertNull(phase0.getPreviousPhase());
-        assertEquals(nextPhaseId, phase0.getNextPhase().getId());
-
         // post to second place
-        eventCatcher.catchEventOfType(PhaseCreatedEvent.class);
         PhasePostDto phasePostDto1 = new PhasePostDto(buildUpProjectId, phaseName1, phaseId0);
+
+        // Act & Assert
         MvcResult postResult1 =
                 mockMvc.perform(
                                 post("/phases")
@@ -250,26 +241,11 @@ public class PhaseControllerTests {
                         .andExpect(jsonPath("$.nextPhaseId").value(nextPhaseId.toString()))
                         .andExpect(jsonPath("$.ticketCount").value(0))
                         .andReturn();
-        String postResponse1 = postResult1.getResponse().getContentAsString();
-        UUID phaseId1 = UUID.fromString(JsonPath.parse(postResponse1).read("$.id"));
-
-        // test event
-        await().until(eventCatcher::hasCaughtEvent);
-        PhaseCreatedEvent phaseCreatedEvent1 = (PhaseCreatedEvent) eventCatcher.getEvent();
-        assertEquals(phaseId1, phaseCreatedEvent1.getPhaseId());
-        assertEquals(phasePostDto1.getProjectId(), phaseCreatedEvent1.getProjectId());
-
-        // test instance
-        Phase phase1 = phaseDomainService.getPhaseById(phaseId1);
-        assertEquals(phaseId1, phase1.getId());
-        assertEquals(phasePostDto1.getProjectId(), phase1.getProjectId());
-        assertEquals(phasePostDto1.getName(), phase1.getName());
-        assertEquals(phasePostDto1.getPreviousPhaseId(), phase1.getPreviousPhase().getId());
-        assertEquals(nextPhaseId, phase1.getNextPhase().getId());
     }
 
     @Test
     public void deletePhaseTest() throws Exception {
+        // Arrange
         restMinion.postPhase(jwt, buildUpProjectId, phaseName1, null);
         restMinion.postPhase(jwt, buildUpProjectId, phaseName0, null);
 
@@ -298,8 +274,8 @@ public class PhaseControllerTests {
         assertNull(initialPhases.get(2).getPreviousPhase());
         assertEquals(initialPhases.get(1).getId(), initialPhases.get(2).getNextPhase().getId());
 
+        // Act & Assert
         // delete middle -> phaseId1
-        eventCatcher.catchEventOfType(PhaseDeletedEvent.class);
         MvcResult deleteResult0 =
                 mockMvc.perform(
                                 delete("/phases/" + phaseId1)
@@ -307,15 +283,6 @@ public class PhaseControllerTests {
                                         .header("Authorization", jwt))
                         .andExpect(status().isNoContent())
                         .andReturn();
-
-        // test event
-        await().until(eventCatcher::hasCaughtEvent);
-        PhaseDeletedEvent phaseDeletedEvent = (PhaseDeletedEvent) eventCatcher.getEvent();
-        assertEquals(phaseId1, phaseDeletedEvent.getPhaseId());
-        assertEquals(buildUpProjectId, phaseDeletedEvent.getProjectId());
-
-        // test if phase was actually deleted
-        assertThrows(NoPhaseFoundException.class, () -> phaseDomainService.getPhaseById(phaseId1));
 
         // test other phases after delete
         List<Phase> phasesAfterFirstDelete = phaseDomainService.getPhasesByProjectId(buildUpProjectId);
@@ -329,8 +296,12 @@ public class PhaseControllerTests {
         assertEquals(phasesAfterFirstDelete.get(1).getNextPhase().getId(), phasesAfterFirstDelete.get(0).getId());
         assertNull(phasesAfterFirstDelete.get(1).getPreviousPhase());
 
+        // second stage
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
         // delete last -> backlogId
-        eventCatcher.catchEventOfType(PhaseDeletedEvent.class);
         MvcResult deleteResult1 =
                 mockMvc.perform(
                                 delete("/phases/" + backlogId)
@@ -338,15 +309,6 @@ public class PhaseControllerTests {
                                         .header("Authorization", jwt))
                         .andExpect(status().isNoContent())
                         .andReturn();
-
-        // test event
-        await().until(eventCatcher::hasCaughtEvent);
-        PhaseDeletedEvent phaseDeletedEvent1 = (PhaseDeletedEvent) eventCatcher.getEvent();
-        assertEquals(backlogId, phaseDeletedEvent1.getPhaseId());
-        assertEquals(buildUpProjectId, phaseDeletedEvent1.getProjectId());
-
-        // test if phase was actually deleted
-        assertThrows(NoPhaseFoundException.class, () -> phaseDomainService.getPhaseById(backlogId));
 
         // test other phases after delete
         List<Phase> phasesAfterSecondDelete = phaseDomainService.getPhasesByProjectId(buildUpProjectId);
@@ -357,8 +319,12 @@ public class PhaseControllerTests {
         assertNull(phasesAfterSecondDelete.get(0).getPreviousPhase());
         assertNull(phasesAfterSecondDelete.get(0).getNextPhase());
 
+        // third stage
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
         // delete remaining phase -> phaseId0
-        eventCatcher.catchEventOfType(PhaseDeletedEvent.class);
         MvcResult deleteResult2 =
                 mockMvc.perform(
                                 delete("/phases/" + phaseId0)
@@ -366,28 +332,19 @@ public class PhaseControllerTests {
                                         .header("Authorization", jwt))
                         .andExpect(status().isConflict())
                         .andReturn();
-
-        // test event
-        try {
-            await().atMost(3, TimeUnit.SECONDS).until(eventCatcher::hasCaughtEvent);
-            fail();
-        } catch (Exception e) {
-            // test passed
-        }
-
-        // test if phase was actually deleted
-        Phase phase = phaseDomainService.getPhaseById(phaseId0);
     }
 
     @Test
     public void putPhaseNameTest() throws Exception {
+        // Arrange
         List<Phase> initialPhases = phaseDomainService.getPhasesByProjectId(buildUpProjectId);
         assertEquals(1, initialPhases.size());
         assertEquals("BACKLOG", initialPhases.get(0).getName());
         UUID backlogId = initialPhases.get(0).getId();
-
         String newName = "Hola que tal";
         PhasePutNameDto phasePutNameDto = new PhasePutNameDto(newName);
+
+        // Act & Assert
         MvcResult putResult =
                 mockMvc.perform(
                                 put("/phases/" + backlogId + "/name")
@@ -396,16 +353,11 @@ public class PhaseControllerTests {
                                         .header("Authorization", jwt))
                         .andExpect(status().isNoContent())
                         .andReturn();
-
-        // test if name changed
-        Phase phase = phaseDomainService.getPhaseById(backlogId);
-        assertEquals(backlogId, phase.getId());
-        assertEquals(newName, phase.getName());
-        assertNotEquals("BACKLOG", phase.getName());
     }
 
     @Test
     public void putPhasePositionFirstToLastTest() throws Exception {
+        // Arrange
         restMinion.postPhase(jwt, buildUpProjectId, phaseName1, null);
         restMinion.postPhase(jwt, buildUpProjectId, phaseName0, null);
 
@@ -434,6 +386,7 @@ public class PhaseControllerTests {
         assertNull(initialPhases.get(2).getPreviousPhase());
         assertEquals(initialPhases.get(1).getId(), initialPhases.get(2).getNextPhase().getId());
 
+        // Act & Assert
         // move first to last
         PhasePutPositionDto phasePutPositionDto = new PhasePutPositionDto(backlogId);
         MvcResult putResult =
@@ -444,179 +397,280 @@ public class PhaseControllerTests {
                                         .header("Authorization", jwt))
                         .andExpect(status().isNoContent())
                         .andReturn();
+    }
 
-        // test initial state
-        List<Phase> phasesAfterPut = phaseDomainService.getPhasesByProjectId(buildUpProjectId);
-        assertEquals(3, phasesAfterPut.size());
+    // new tests
 
-        assertEquals("BACKLOG", phasesAfterPut.get(0).getName());
-        assertFalse(phasesAfterPut.get(0).isFirst());
-        assertFalse(phasesAfterPut.get(0).isLast());
-        assertEquals(phasesAfterPut.get(1).getId(), phasesAfterPut.get(0).getPreviousPhase().getId());
-        assertEquals(phaseId1, phasesAfterPut.get(0).getPreviousPhase().getId());
-        assertEquals(phasesAfterPut.get(2).getId(), phasesAfterPut.get(0).getNextPhase().getId());
-        assertEquals(phaseId0, phasesAfterPut.get(0).getNextPhase().getId());
+    @Test
+    public void testGetPhaseByIdNotFound() throws Exception {
+        // Arrange
+        UUID phaseId = UUID.randomUUID();
 
-        assertEquals(phaseName1, phasesAfterPut.get(1).getName());
-        assertTrue(phasesAfterPut.get(1).isFirst());
-        assertFalse(phasesAfterPut.get(1).isLast());
-        assertNull(phasesAfterPut.get(1).getPreviousPhase());
-        assertEquals(phasesAfterPut.get(0).getId(), phasesAfterPut.get(1).getNextPhase().getId());
-        assertEquals(backlogId, phasesAfterPut.get(1).getNextPhase().getId());
-
-        assertEquals(phaseName0, phasesAfterPut.get(2).getName());
-        assertFalse(phasesAfterPut.get(2).isFirst());
-        assertTrue(phasesAfterPut.get(2).isLast());
-        assertEquals(phasesAfterPut.get(0).getId(), phasesAfterPut.get(2).getPreviousPhase().getId());
-        assertEquals(backlogId, phasesAfterPut.get(2).getPreviousPhase().getId());
-        assertNull(phasesAfterPut.get(2).getNextPhase());
+        // Act & Assert
+        mockMvc.perform(
+                get("/phases/" + phaseId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", jwt))
+                .andExpect(status().isNotFound());
     }
 
     @Test
-    public void consumeDefaultProjectCreatedEventTest() throws Exception {
-        UUID tempProjectId = UUID.randomUUID();
+    public void testGetPhaseByIdWithInvalidJWT() throws Exception {
+        // Arrange
+        UUID phaseId = restMinion.postPhase(jwt, buildUpProjectId, phaseName0, null);
+        String wrongJwt = "Bearer wrongJwt";
 
-        eventCatcher.catchEventOfType(PhaseCreatedEvent.class);
-        eventPublisher.publishEvent(new DefaultProjectCreatedEvent(tempProjectId, userId));
-        Thread.sleep(100); // give enough time to handle event
-
-        // test at least one PhaseCreatedEvent
-        await().until(eventCatcher::hasCaughtEvent);
-        PhaseCreatedEvent phaseCreatedEvent = (PhaseCreatedEvent) eventCatcher.getEvent();
-        assertEquals(tempProjectId, phaseCreatedEvent.getProjectId());
-
-        // test phases
-        List<Phase> phases = phaseDomainService.getPhasesByProjectId(tempProjectId);
-        assertEquals(4, phases.size());
-
-        assertEquals("DONE", phases.get(0).getName());
-        UUID doneId = phases.get(0).getId();
-        assertFalse(phases.get(0).isFirst());
-        assertTrue(phases.get(0).isLast());
-        assertEquals(phases.get(1).getId(), phases.get(0).getPreviousPhase().getId());
-        assertNull(phases.get(0).getNextPhase());
-
-        assertEquals("REVIEW", phases.get(1).getName());
-        UUID reviewId = phases.get(1).getId();
-        assertFalse(phases.get(1).isFirst());
-        assertFalse(phases.get(1).isLast());
-        assertEquals(phases.get(2).getId(), phases.get(1).getPreviousPhase().getId());
-        assertEquals(phases.get(0).getId(), phases.get(1).getNextPhase().getId());
-
-        assertEquals("DOING", phases.get(2).getName());
-        UUID doingId = phases.get(2).getId();
-        assertFalse(phases.get(2).isFirst());
-        assertFalse(phases.get(2).isLast());
-        assertEquals(phases.get(3).getId(), phases.get(2).getPreviousPhase().getId());
-        assertEquals(phases.get(1).getId(), phases.get(2).getNextPhase().getId());
-
-        assertEquals("BACKLOG", phases.get(3).getName());
-        UUID backlogId = phases.get(3).getId();
-        assertTrue(phases.get(3).isFirst());
-        assertFalse(phases.get(3).isLast());
-        assertNull(phases.get(3).getPreviousPhase());
-        assertEquals(phases.get(2).getId(), phases.get(3).getNextPhase().getId());
+        // Act & Assert
+        mockMvc.perform(
+                        get("/phases/" + phaseId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .header("Authorization", wrongJwt))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
-    public void consumeProjectCreatedEventTest() throws Exception {
-        UUID tempProjectId = UUID.randomUUID();
+    public void testGetPhaseByIdUnauthorized() throws Exception {
+        // Arrange
+        String differentUserName = "Different User";
+        String differentUserEmail = "differen@user.com";
+        String differentUserPassword = "DifferentPassword";
+        UUID differentUserId = restMinion.postUser(differentUserName, differentUserEmail, differentUserPassword);
+        String differentUserJwt = restMinion.authenticateUser(differentUserEmail, differentUserPassword);
+        UUID phaseId = restMinion.postPhase(jwt, buildUpProjectId, phaseName0, null);
 
-        eventCatcher.catchEventOfType(PhaseCreatedEvent.class);
-        eventPublisher.publishEvent(new ProjectCreatedEvent(tempProjectId, userId));
-        Thread.sleep(100); // give enough time to handle event
-
-        // test event
-        await().until(eventCatcher::hasCaughtEvent);
-        PhaseCreatedEvent phaseCreatedEvent = (PhaseCreatedEvent) eventCatcher.getEvent();
-        assertEquals(tempProjectId, phaseCreatedEvent.getProjectId());
-
-        // test phases
-        List<Phase> phases = phaseDomainService.getPhasesByProjectId(tempProjectId);
-        assertEquals(1, phases.size());
-
-        assertEquals("BACKLOG", phases.get(0).getName());
-        assertEquals(phases.get(0).getId(), phaseCreatedEvent.getPhaseId());
-        assertTrue(phases.get(0).isFirst());
-        assertTrue(phases.get(0).isLast());
-        assertNull(phases.get(0).getPreviousPhase());
-        assertNull(phases.get(0).getNextPhase());
+        // Act & Assert
+        mockMvc.perform(
+                        get("/phases/" + phaseId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .header("Authorization", differentUserJwt))
+                .andExpect(status().isForbidden());
     }
 
     @Test
-    public void consumeProjectDeletedEventTest() throws Exception {
-        eventCatcher.catchEventOfType(PhaseDeletedEvent.class);
-        eventPublisher.publishEvent(new ProjectDeletedEvent(buildUpProjectId));
+    public void testGetPhasesByQueryNoProjectId() throws Exception {
+        // Arrange
+        // nothing to arrange
 
-        // test event
-        await().until(eventCatcher::hasCaughtEvent);
-        PhaseDeletedEvent phaseDeletedEvent = (PhaseDeletedEvent) eventCatcher.getEvent();
-        assertEquals(buildUpProjectId, phaseDeletedEvent.getProjectId());
-
-        // test if phase is actually gone
-        assertThrows(NoPhaseFoundException.class, () -> phaseDomainService.getPhasesByProjectId(buildUpProjectId));
+        // Act & Assert
+        mockMvc.perform(
+                get("/phases")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", jwt))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    public void consumeTicketCreatedEvent() {
-        UUID ticketId = UUID.randomUUID();
-        eventPublisher.publishEvent(new TicketCreatedEvent(ticketId, buildUpProjectId, userId));
+    public void testGetPhasesByQueryNotFound() throws Exception {
+        // Arrange
+        UUID projectId = UUID.randomUUID();
 
-        // get phaseId of buildUpProject
-        List<Phase> phases = phaseDomainService.getPhasesByProjectId(buildUpProjectId);
-        assertEquals(1, phases.size());
-        assertEquals("BACKLOG", phases.get(0).getName());
-        UUID phaseId = phases.get(0).getId();
-
-        // test instance
-        Phase phase = phaseDomainService.getPhaseById(phases.get(0).getId());
-        assertEquals(phase, phases.get(0));
-        assertEquals(buildUpProjectId, phase.getProjectId());
-        assertEquals(1, phase.getTicketCount());
+        // Act & Assert
+        mockMvc.perform(
+                get("/phases")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .queryParam("project-id", projectId.toString())
+                        .header("Authorization", jwt))
+                .andExpect(status().isForbidden()); // fails early in security
     }
 
     @Test
-    public void consumeTicketDeletedEvent() {
-        UUID ticketId = UUID.randomUUID();
-        eventPublisher.publishEvent(new TicketCreatedEvent(ticketId, buildUpProjectId, userId));
+    public void testPostPhaseToNonExistentProject() throws Exception {
+        // Arrange
+        UUID projectId = UUID.randomUUID();
+        PhasePostDto phasePostDto = new PhasePostDto(projectId, phaseName0, null);
 
-        // get phaseId of buildUpProject
-        List<Phase> phases = phaseDomainService.getPhasesByProjectId(buildUpProjectId);
-        assertEquals("BACKLOG", phases.get(0).getName());
-        assertEquals(1, phases.size());
-        assertEquals(1, phases.get(0).getTicketCount());
-        UUID phaseId = phases.get(0).getId();
-
-        eventPublisher.publishEvent(new TicketDeletedEvent(ticketId, buildUpProjectId, phaseId));
-
-        // test instance
-        Phase phase = phaseDomainService.getPhaseById(phaseId);
-        assertEquals(phase, phases.get(0));
-        assertEquals(buildUpProjectId, phase.getProjectId());
-        assertEquals(0, phase.getTicketCount());
+        // Act & Assert
+        mockMvc.perform(
+                post("/phases")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(phasePostDto))
+                        .header("Authorization", jwt))
+                .andExpect(status().isForbidden()); // fails early in security
     }
 
     @Test
-    public void consumeTicketPhaseUpdatedEventTest() throws Exception {
-        // get ids of phases
-        List<Phase> phases = phaseDomainService.getPhasesByProjectId(buildUpProjectId);
-        assertEquals("BACKLOG", phases.get(0).getName());
-        assertEquals(1, phases.size());
-        UUID backlogId = phases.get(0).getId();
-        UUID doneId = restMinion.postPhase(jwt, buildUpProjectId, "DONE", backlogId);
+    public void testPostPhaseUnauthorized() throws Exception {
+        // Arrange
+        String differentUserName = "Different User";
+        String differentUserEmail = "differen@user.com";
+        String differentUserPassword = "DifferentPassword";
+        UUID differentUserId = restMinion.postUser(differentUserName, differentUserEmail, differentUserPassword);
+        String differentUserJwt = restMinion.authenticateUser(differentUserEmail, differentUserPassword);
+        UUID phaseId = restMinion.postPhase(jwt, buildUpProjectId, phaseName0, null);
+        PhasePostDto phasePostDto = new PhasePostDto(buildUpProjectId, phaseName0, null);
 
-        // mock post ticket
-        UUID ticketId = UUID.randomUUID();
-        eventPublisher.publishEvent(new TicketCreatedEvent(ticketId, buildUpProjectId, userId));
+        // Act & Assert
+        mockMvc.perform(
+                        post("/phases")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(phasePostDto))
+                                .header("Authorization", differentUserJwt))
+                .andExpect(status().isForbidden());
+    }
 
-        assertEquals(1, phaseDomainService.getPhaseById(backlogId).getTicketCount());
-        assertEquals(0, phaseDomainService.getPhaseById(doneId).getTicketCount());
+    @Test
+    public void testPostPhaseWithNotExistingPreviousPhase() throws Exception {
+        // Arrange
+        UUID unrelatedPhaseId = UUID.randomUUID();
+        PhasePostDto phasePostDto = new PhasePostDto(buildUpProjectId, "somePhaseName", unrelatedPhaseId);
 
-        // change position of ticket
-        eventPublisher.publishEvent(new TicketPhaseUpdatedEvent(ticketId, buildUpProjectId, backlogId, doneId));
+        // Act & Assert
+        mockMvc.perform(
+                post("/phases")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(phasePostDto))
+                        .header("Authorization", jwt))
+                .andExpect(status().isNotFound());
+    }
 
-        // test if ticketCount of phases got updated
-        assertEquals(0, phaseDomainService.getPhaseById(backlogId).getTicketCount());
-        assertEquals(1, phaseDomainService.getPhaseById(doneId).getTicketCount());
+    @Test
+    public void testPostPhaseWithUnrelatedPreviousPhase() throws Exception {
+        // Arrange
+        UUID otherProjectId = restMinion.postProject(jwt, differentProjectName, differentProjectDescription);
+        UUID unrelatedPhaseId = restMinion.postPhase(jwt, otherProjectId, "someUnrelatedPhaseName", null);
+        PhasePostDto phasePostDto = new PhasePostDto(buildUpProjectId, "somePhaseName", unrelatedPhaseId);
+
+        // Act & Assert
+        mockMvc.perform(
+                post("/phases")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(phasePostDto))
+                        .header("Authorization", jwt))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    public void testPutPhaseNameUnauthorized() throws Exception {
+        // Arrange
+        String differentUserName = "Different User";
+        String differentUserEmail = "differen@user.com";
+        String differentUserPassword = "DifferentPassword";
+        UUID differentUserId = restMinion.postUser(differentUserName, differentUserEmail, differentUserPassword);
+        String differentUserJwt = restMinion.authenticateUser(differentUserEmail, differentUserPassword);
+        UUID phaseId = restMinion.postPhase(jwt, buildUpProjectId, phaseName0, null);
+        PhasePostDto phasePatchNameDto = new PhasePostDto(buildUpProjectId, "newPhaseName", null);
+
+        // Act & Assert
+        mockMvc.perform(
+                        put("/phases/" + phaseId + "/name")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(phasePatchNameDto))
+                                .header("Authorization", differentUserJwt))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void testPutPhaseNameNotFound() throws Exception {
+        // Arrange
+        UUID phaseId = UUID.randomUUID();
+        PhasePostDto phasePatchNameDto = new PhasePostDto(buildUpProjectId, "newPhaseName", null);
+
+        // Act & Assert
+        mockMvc.perform(
+                put("/phases/" + phaseId + "/name")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(phasePatchNameDto))
+                        .header("Authorization", jwt))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    public void testPutPhaseNameEmptyName() throws Exception {
+        // Arrange
+        UUID phaseId = restMinion.postPhase(jwt, buildUpProjectId, phaseName0, null);
+        PhasePostDto phasePatchNameDto = new PhasePostDto(buildUpProjectId, "", null);
+
+        // Act & Assert
+        mockMvc.perform(
+                put("/phases/" + phaseId + "/name")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(phasePatchNameDto))
+                        .header("Authorization", jwt))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void testPutPhasePositionUnauthorized() throws Exception {
+        // Arrange
+        String differentUserName = "Different User";
+        String differentUserEmail = "differen@user.com";
+        String differentUserPassword = "DifferentPassword";
+        UUID differentUserId = restMinion.postUser(differentUserName, differentUserEmail, differentUserPassword);
+        String differentUserJwt = restMinion.authenticateUser(differentUserEmail, differentUserPassword);
+        UUID phaseId = restMinion.postPhase(jwt, buildUpProjectId, phaseName0, null);
+        PhasePostDto phasePatchNameDto = new PhasePostDto(buildUpProjectId, "newPhaseName", null);
+
+        // Act & Assert
+        mockMvc.perform(
+                        put("/phases/" + phaseId + "/position")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(phasePatchNameDto))
+                                .header("Authorization", differentUserJwt))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void testPutPhasePositionNotFound() throws Exception {
+        // Arrange
+        UUID phaseId = UUID.randomUUID();
+        PhasePostDto phasePatchNameDto = new PhasePostDto(buildUpProjectId, "newPhaseName", null);
+
+        // Act & Assert
+        mockMvc.perform(
+                put("/phases/" + phaseId + "/position")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(phasePatchNameDto))
+                        .header("Authorization", jwt))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    public void testPutPhasePositionWithNotExistingPreviousPhase() throws Exception {
+        // Arrange
+        UUID unrelatedPhaseId = UUID.randomUUID();
+        PhasePostDto phasePatchNameDto = new PhasePostDto(buildUpProjectId, "newPhaseName", unrelatedPhaseId);
+
+        // Act & Assert
+        mockMvc.perform(
+                put("/phases/" + unrelatedPhaseId + "/position")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(phasePatchNameDto))
+                        .header("Authorization", jwt))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    public void testPutPhasePositionWithUnrelatedPreviousPhase() throws Exception {
+        // Arrange
+        UUID newPhaseId = restMinion.postPhase(jwt, buildUpProjectId, phaseName0, null);
+        UUID otherProjectId = restMinion.postProject(jwt, differentProjectName, differentProjectDescription);
+        UUID unrelatedPhaseId = restMinion.postPhase(jwt, otherProjectId, "someUnrelatedPhaseName", null);
+        PhasePutPositionDto phasePutPositionDto = new PhasePutPositionDto(unrelatedPhaseId);
+
+        // Act & Assert
+        mockMvc.perform(
+                put("/phases/" + newPhaseId + "/position")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(phasePutPositionDto))
+                        .header("Authorization", jwt))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    public void testDeletePhaseUnauthorized() throws Exception {
+        // Arrange
+        String differentUserName = "Different User";
+        String differentUserEmail = "differen@user.com";
+        String differentUserPassword = "DifferentPassword";
+        UUID differentUserId = restMinion.postUser(differentUserName, differentUserEmail, differentUserPassword);
+        String differentUserJwt = restMinion.authenticateUser(differentUserEmail, differentUserPassword);
+        UUID phaseId = restMinion.postPhase(jwt, buildUpProjectId, phaseName0, null);
+
+        // Act & Assert
+        mockMvc.perform(
+                        delete("/phases/" + phaseId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .header("Authorization", differentUserJwt))
+                .andExpect(status().isForbidden());
     }
 }

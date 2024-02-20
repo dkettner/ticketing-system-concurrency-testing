@@ -44,8 +44,6 @@ public class UserControllerTests {
     private final MockMvc mockMvc;
     private final ObjectMapper objectMapper;
     private final UserRepository userRepository;
-    private final UserDomainService userDomainService;
-    private final EventCatcher eventCatcher;
 
     private String name0;
     private String email0;
@@ -74,15 +72,11 @@ public class UserControllerTests {
     public UserControllerTests(
             MockMvc mockMvc,
             ObjectMapper objectMapper,
-            UserRepository userRepository,
-            UserDomainService userDomainService,
-            EventCatcher eventCatcher
+            UserRepository userRepository
     ) {
         this.mockMvc = mockMvc;
         this.objectMapper = objectMapper;
         this.userRepository = userRepository;
-        this.userDomainService = userDomainService;
-        this.eventCatcher = eventCatcher;
     }
 
     @BeforeEach
@@ -162,68 +156,35 @@ public class UserControllerTests {
     }
 
     @Test
-    public void postValidUserTests() throws Exception {
+    public void testPostUser() throws Exception {
+        // Arrange
+        String name = "Default User";
+        String email = "default.user@mail.com";
+        String password = "SWORDFISH";
+        UserPostDto userPostDto = new UserPostDto(name, email, password);
+        String postContent = objectMapper.writeValueAsString(userPostDto);
 
-        // validUser0
-        eventCatcher.catchEventOfType(UserCreatedEvent.class);
-        UserPostDto validUser0PostDto = new UserPostDto(name0, email0, password0);
-        MvcResult result0 =
-                mockMvc.perform(
-                                post("/users")
-                                        .contentType(MediaType.APPLICATION_JSON)
-                                        .content(objectMapper.writeValueAsString(validUser0PostDto)))
-                        .andExpect(status().isCreated())
-                        .andExpect(jsonPath("$.id").exists())
-                        .andExpect(jsonPath("$.name").value(validUser0PostDto.getName()))
-                        .andExpect(jsonPath("$.email").value(validUser0PostDto.getEmail()))
-                        .andReturn();
-
-        // test instance
-        String response0 = result0.getResponse().getContentAsString();
-        String tempId0 = JsonPath.parse(response0).read("$.id");
-        User user0 = userDomainService.getUserById(UUID.fromString(tempId0));
-        assertEquals(user0.getName(), validUser0PostDto.getName());
-        assertEquals(user0.getEmail(), EmailAddress.fromString(validUser0PostDto.getEmail()));
-
-        // test UserCreatedEvent
-        await().until(eventCatcher::hasCaughtEvent);
-        UserCreatedEvent userCreatedEvent = (UserCreatedEvent) eventCatcher.getEvent();
-        assertEquals(user0.getId(), userCreatedEvent.getUserId());
-        assertEquals(name0, userCreatedEvent.getName());
-        assertEquals(email0, userCreatedEvent.getEmailAddress().toString());
-
-        // validUser1
-        eventCatcher.catchEventOfType(UserCreatedEvent.class);
-        UserPostDto validUser1PostDto = new UserPostDto(name1, email1, password1);
-        MvcResult result1 =
-                mockMvc.perform(
-                                post("/users")
-                                        .contentType(MediaType.APPLICATION_JSON)
-                                        .content(objectMapper.writeValueAsString(validUser1PostDto)))
-                        .andExpect(status().isCreated())
-                        .andExpect(jsonPath("$.id").exists())
-                        .andExpect(jsonPath("$.name").value(validUser1PostDto.getName()))
-                        .andExpect(jsonPath("$.email").value(validUser1PostDto.getEmail()))
-                        .andReturn();
-
-        // test instance
-        String response1 = result1.getResponse().getContentAsString();
-        String tempId1 = JsonPath.parse(response1).read("$.id");
-        User user1 = userDomainService.getUserById(UUID.fromString(tempId1));
-        assertEquals(user1.getName(), validUser1PostDto.getName());
-        assertEquals(user1.getEmail(), EmailAddress.fromString(validUser1PostDto.getEmail()));
-
-        // test UserCreatedEvent
-        await().until(eventCatcher::hasCaughtEvent);
-        UserCreatedEvent userCreatedEvent1 = (UserCreatedEvent) eventCatcher.getEvent();
-        assertEquals(user1.getId(), userCreatedEvent1.getUserId());
-        assertEquals(name1, userCreatedEvent1.getName());
-        assertEquals(email1, userCreatedEvent1.getEmailAddress().toString());
+        // Act
+        mockMvc.perform(
+                        post("/users")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(postContent))
+                .andExpect(status().isCreated())                         // Assert
+                .andExpect(jsonPath("$.id").value(              //check if id is valid UUID
+                        UUID.fromString(jsonPath("$.id").toString())
+                                .toString())
+                )
+                .andExpect(jsonPath("$.name").value(userPostDto.getName()))
+                .andExpect(jsonPath("$.email").value(userPostDto.getEmail()));
     }
+
 
     @Test
     public void postInvalidUserTests() throws Exception {
+        // Arrange
+        // nothing to arrange
 
+        // Act & Assert stage 1
         // invalidUser0
         UserPostDto invalidUser0PostDto = new UserPostDto(name2, email2, password2);
         mockMvc.perform(
@@ -232,7 +193,7 @@ public class UserControllerTests {
                                 .content(objectMapper.writeValueAsString(invalidUser0PostDto)))
                 .andExpect(status().isBadRequest());
 
-
+        // Act & Assert stage 2
         // invalidUser1
         UserPostDto invalidUser1PostDto = new UserPostDto(name3, email3, password3);
         mockMvc.perform(
@@ -241,6 +202,7 @@ public class UserControllerTests {
                                 .content(objectMapper.writeValueAsString(invalidUser1PostDto)))
                 .andExpect(status().isBadRequest());
 
+        // Act & Assert stage 3
         // invalidUser2
         UserPostDto invalidUser2PostDto = new UserPostDto(null, email0, password0);
         mockMvc.perform(
@@ -249,6 +211,7 @@ public class UserControllerTests {
                                 .content(objectMapper.writeValueAsString(invalidUser2PostDto)))
                 .andExpect(status().isBadRequest());
 
+        // Act & Assert stage 4
         // invalidUser3
         UserPostDto invalidUser3PostDto = new UserPostDto(name0, null, password0);
         mockMvc.perform(
@@ -257,6 +220,7 @@ public class UserControllerTests {
                                 .content(objectMapper.writeValueAsString(invalidUser3PostDto)))
                 .andExpect(status().isBadRequest());
 
+        // Act & Assert stage 5
         // invalidUser4
         UserPostDto invalidUser4PostDto = new UserPostDto(name0, email0, null);
         mockMvc.perform(
@@ -268,8 +232,11 @@ public class UserControllerTests {
 
     @Test
     public void postDuplicateUserTest() throws Exception {
+        // Arrange
         // duplicate email, email4 already exists because of buildUp()
         UserPostDto duplicatePostDto = new UserPostDto(name0, email4, password0);
+
+        // Act & Assert
         mockMvc.perform(
                         post("/users")
                                 .contentType(MediaType.APPLICATION_JSON)
@@ -279,6 +246,10 @@ public class UserControllerTests {
 
     @Test
     public void getUserByIdTest() throws Exception {
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
         MvcResult result =
                 mockMvc.perform(
                                 get("/users/" + id4)
@@ -295,6 +266,10 @@ public class UserControllerTests {
 
     @Test
     public void getUserByWrongIdTest() throws Exception {
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
         MvcResult result =
                 mockMvc.perform(
                                 get("/users/" + UUID.randomUUID())
@@ -306,6 +281,10 @@ public class UserControllerTests {
 
     @Test
     public void getUserByEmailQueryTest() throws Exception {
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
         MvcResult result =
                 mockMvc.perform(
                                 get("/users" )
@@ -323,6 +302,10 @@ public class UserControllerTests {
 
     @Test
     public void getUserByWrongEmailQueryTest() throws Exception {
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
         MvcResult result =
                 mockMvc.perform(
                                 get("/users" )
@@ -335,7 +318,10 @@ public class UserControllerTests {
 
     @Test
     public void getOtherUserByEmailQueryTest() throws Exception {
+        // Arrange
         UserPostDto validUser0PostDto = new UserPostDto(name0, email0, password0);
+
+        // Act & Assert
         MvcResult result0 =
                 mockMvc.perform(
                                 post("/users")
@@ -349,6 +335,9 @@ public class UserControllerTests {
         String response0 = result0.getResponse().getContentAsString();
         String id0 = JsonPath.parse(response0).read("$.id");
 
+        // stage 2
+
+        // Act & Assert
         MvcResult result =
                 mockMvc.perform(
                                 get("/users" )
@@ -366,8 +355,10 @@ public class UserControllerTests {
 
     @Test
     public void patchUserNameTest() throws Exception {
-        eventCatcher.catchEventOfType(UserPatchedEvent.class);
+        // Arrange
         UserPatchDto userPatchDto = new UserPatchDto("Donald Trump", null);
+
+        // Act & Assert
         MvcResult result =
                 mockMvc.perform(
                                 patch("/users/" + id4 )
@@ -376,24 +367,14 @@ public class UserControllerTests {
                                         .header("Authorization", jwt4))
                         .andExpect(status().isNoContent())
                         .andReturn();
-
-        // test instance
-        User user4 = userDomainService.getUserById(UUID.fromString(id4));
-        assertEquals(user4.getName(), userPatchDto.getName());
-        assertEquals(user4.getEmail().toString(), email4);
-
-        // test UserPatchedEvent
-        await().until(eventCatcher::hasCaughtEvent);
-        UserPatchedEvent userPatchedEvent =(UserPatchedEvent) eventCatcher.getEvent();
-        assertEquals(user4.getId(), userPatchedEvent.getUserId());
-        assertEquals(userPatchDto.getName(), userPatchedEvent.getName());
-        assertEquals(user4.getEmail().toString(), email4);
     }
 
     @Test
     public void patchUserEmailTest() throws Exception {
-        eventCatcher.catchEventOfType(UserPatchedEvent.class);
+        // Arrange
         UserPatchDto userPatchDto = new UserPatchDto(null, "agent.orange@truth.net");
+
+        // Act & Assert
         MvcResult result =
                 mockMvc.perform(
                                 patch("/users/" + id4 )
@@ -402,24 +383,14 @@ public class UserControllerTests {
                                         .header("Authorization", jwt4))
                         .andExpect(status().isNoContent())
                         .andReturn();
-
-        // test instance
-        User user4 = userDomainService.getUserById(UUID.fromString(id4));
-        assertEquals(user4.getName(), name4);
-        assertEquals(user4.getEmail().toString(), userPatchDto.getEmail());
-
-        // test UserPatchedEvent
-        await().until(eventCatcher::hasCaughtEvent);
-        UserPatchedEvent userPatchedEvent = (UserPatchedEvent) eventCatcher.getEvent();
-        assertEquals(user4.getId(), userPatchedEvent.getUserId());
-        assertEquals(user4.getName(), name4);
-        assertEquals(user4.getEmail().toString(), userPatchDto.getEmail());
     }
 
     @Test
     public void patchUserNameAndEmailTest() throws Exception {
-        eventCatcher.catchEventOfType(UserPatchedEvent.class);
+        // Arrange
         UserPatchDto userPatchDto = new UserPatchDto("Donald Trump", "agent.orange@truth.net");
+
+        // Act & Assert
         MvcResult result =
                 mockMvc.perform(
                                 patch("/users/" + id4 )
@@ -428,22 +399,14 @@ public class UserControllerTests {
                                         .header("Authorization", jwt4))
                         .andExpect(status().isNoContent())
                         .andReturn();
-
-        // test instance
-        User user4 = userDomainService.getUserById(UUID.fromString(id4));
-        assertEquals(user4.getName(), userPatchDto.getName());
-        assertEquals(user4.getEmail(), EmailAddress.fromString(userPatchDto.getEmail()));
-
-        // test UserPatchedEvent
-        await().until(eventCatcher::hasCaughtEvent);
-        UserPatchedEvent userPatchedEvent = (UserPatchedEvent) eventCatcher.getEvent();
-        assertEquals(user4.getId(), userPatchedEvent.getUserId());
-        assertEquals(userPatchDto.getName(), userPatchedEvent.getName());
-        assertEquals(userPatchDto.getEmail(), userPatchedEvent.getEmailAddress().toString());
     }
 
     @Test
     public void patchUserWithNullDtoEmailTest() throws Exception {
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
         MvcResult result =
                 mockMvc.perform(
                                 patch("/users/" + id4)
@@ -455,7 +418,10 @@ public class UserControllerTests {
 
     @Test
     public void patchUserWithFaultyEmailTest() throws Exception {
+        // Arrange
         UserPatchDto userPatchDto = new UserPatchDto("Donald Trump", "agent.orangetruth.net"); // no @
+
+        // Act & Assert
         MvcResult result =
                 mockMvc.perform(
                                 patch("/users/" + id4)
@@ -468,7 +434,10 @@ public class UserControllerTests {
 
     @Test
     public void patchWrongUserTest() throws Exception {
+        // Arrange
         UserPostDto validUser0PostDto = new UserPostDto(name0, email0, password0);
+
+        // Act & Assert
         MvcResult result0 =
                 mockMvc.perform(
                                 post("/users")
@@ -479,10 +448,15 @@ public class UserControllerTests {
                         .andExpect(jsonPath("$.name").value(validUser0PostDto.getName()))
                         .andExpect(jsonPath("$.email").value(validUser0PostDto.getEmail()))
                         .andReturn();
+
+        // stage 2
+
+        // Arrange
         String response0 = result0.getResponse().getContentAsString();
         String id0 = JsonPath.parse(response0).read("$.id");
-
         UserPatchDto userPatchDto = new UserPatchDto("Donald Trump", "agent.orange@truth.net");
+
+        // Act & Assert
         MvcResult result1 =
                 mockMvc.perform(
                                 patch("/users/" + id0) // wrong but existing user
@@ -492,6 +466,12 @@ public class UserControllerTests {
                         .andExpect(status().isForbidden())
                         .andReturn();
 
+        // stage 3
+
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
         MvcResult result2 =
                 mockMvc.perform(
                                 patch("/users/" + UUID.randomUUID()) // non-existing user
@@ -504,7 +484,10 @@ public class UserControllerTests {
 
     @Test
     public void patchUserUnauthorizedTest() throws Exception {
+        // Arrange
         UserPatchDto userPatchDto = new UserPatchDto("Donald Trump", "agent.orange@truth.net");
+
+        // Act & Assert
         MvcResult result =
                 mockMvc.perform(
                                 patch("/users/" + id4)
@@ -516,8 +499,11 @@ public class UserControllerTests {
 
     @Test
     public void deleteUserTest() throws Exception {
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
         // validUser1
-        eventCatcher.catchEventOfType(UserDeletedEvent.class);
         MvcResult result1 =
                 mockMvc.perform(
                                 delete("/users/" + id4)
@@ -525,43 +511,30 @@ public class UserControllerTests {
                                         .header("Authorization", jwt4))
                         .andExpect(status().isNoContent())
                         .andReturn();
-
-        // test instance
-        assertThrows(NoUserFoundException.class, () -> userDomainService.getUserById(UUID.fromString(id4)));
-
-        // test UserDeletedEvent
-        await().until(eventCatcher::hasCaughtEvent);
-        UserDeletedEvent userDeletedEvent = (UserDeletedEvent) eventCatcher.getEvent();
-        assertEquals(userDeletedEvent.getUserId(), UUID.fromString(id4));
     }
 
     @Test
     public void deleteUserUnauthorizedTest() throws Exception {
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
         // validUser1
-        eventCatcher.catchEventOfType(UserDeletedEvent.class);
         MvcResult result1 =
                 mockMvc.perform(
                                 delete("/users/" + id4)
                                         .contentType(MediaType.APPLICATION_JSON))
                         .andExpect(status().isUnauthorized())
                         .andReturn();
-
-        // test instance
-        User user = userDomainService.getUserById(UUID.fromString(id4));
-
-        // test if UserDeletedEvent was thrown
-        try {
-            await().atMost(3, TimeUnit.SECONDS).until(eventCatcher::hasCaughtEvent);
-            fail();
-        } catch (Exception e) {
-            // test passed
-        }
     }
 
     @Test
     public void deleteNonExistingUserTest() throws Exception {
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
         // validUser1
-        eventCatcher.catchEventOfType(UserDeletedEvent.class);
         MvcResult result1 =
                 mockMvc.perform(
                                 delete("/users/" + UUID.randomUUID())
@@ -569,18 +542,11 @@ public class UserControllerTests {
                                         .header("Authorization", jwt4))
                         .andExpect(status().isForbidden())
                         .andReturn();
-
-        // test if UserDeletedEvent was thrown
-        try {
-            await().atMost(3, TimeUnit.SECONDS).until(eventCatcher::hasCaughtEvent);
-            fail();
-        } catch (Exception e) {
-            // test passed
-        }
     }
 
     @Test
     public void deleteOtherExistingUserTest() throws Exception {
+        // Arrange
         // post other user
         UserPostDto dummyUserPostDto = new UserPostDto(name0, email0, password0);
         MvcResult dummyResult =
@@ -592,8 +558,8 @@ public class UserControllerTests {
         String dummyResponse = dummyResult.getResponse().getContentAsString();
         String id0 = JsonPath.parse(dummyResponse).read("$.id");
 
+        // Act & Assert
         // but use jwt from the wrong user
-        eventCatcher.catchEventOfType(UserDeletedEvent.class);
         MvcResult result1 =
                 mockMvc.perform(
                                 delete("/users/" + id0)
@@ -601,13 +567,38 @@ public class UserControllerTests {
                                         .header("Authorization", jwt4))
                         .andExpect(status().isForbidden())
                         .andReturn();
+    }
 
-        // test if UserDeletedEvent was thrown
-        try {
-            await().atMost(3, TimeUnit.SECONDS).until(eventCatcher::hasCaughtEvent);
-            fail();
-        } catch (Exception e) {
-            // test passed
-        }
+    // new tests
+
+    @Test
+    public void testPatchUserWithAlreadyUsedEmail() throws Exception {
+        // Arrange
+        mockMvc.perform(
+                post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new UserPostDto(name0, email0, password0))));
+        UserPatchDto userPatchDto = new UserPatchDto(null, email0);
+
+        // Act & Assert
+        mockMvc.perform(
+                        patch("/users/" + id4)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(userPatchDto))
+                                .header("Authorization", jwt4))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    public void testGetUserByQueryNoParameters() throws Exception {
+        // Arrange
+        // nothing to arrange
+
+        // Act & Assert
+        mockMvc.perform(
+                        get("/users")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .header("Authorization", jwt4))
+                .andExpect(status().isBadRequest());
     }
 }

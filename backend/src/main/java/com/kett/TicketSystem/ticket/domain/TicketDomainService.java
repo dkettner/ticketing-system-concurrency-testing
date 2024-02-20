@@ -144,7 +144,7 @@ public class TicketDomainService {
     public UUID getProjectIdByPhaseIdOfTicket(UUID phaseId) throws NoTicketFoundException {
         List<PhaseDataOfTicket> phaseData = phaseDataOfTicketRepository.findByPhaseId(phaseId);
         if (phaseData.isEmpty()) {
-            throw new TicketException("There is no data about a phase with phaseId: " + phaseId);
+            throw new NoTicketFoundException("could not find ticket with phaseId: " + phaseId);
         }
         return phaseData.get(0).getProjectId();
     }
