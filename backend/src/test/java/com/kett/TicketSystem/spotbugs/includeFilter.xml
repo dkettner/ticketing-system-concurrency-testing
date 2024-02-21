@@ -1,0 +1,14 @@
+<FindBugsFilter>
+    <Match>
+        <Bug pattern="THI_NOTHING_TO_WAIT_ON"/>
+    </Match>
+    <Match>
+        <Bug pattern="UG_SYNC_SET_UNSYNC_GET"/>
+    </Match>
+    <Match>
+        <Bug pattern="VO_VOLATILE_INCREMENT"/>
+    </Match>
+    <Match>
+        <Bug code="RV"/>
+    </Match>
+</FindBugsFilter>
