@@ -624,4 +624,55 @@ public class TicketControllerTests {
                         .header("Authorization", jwt0))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    public void testDeleteTicketWithInvalidJwt() throws Exception {
+        // Arrange
+        UUID ticketId = UUID.randomUUID();
+
+        // Act & Assert
+        mockMvc.perform(
+                delete("/tickets/" + ticketId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + jwt2))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    public void testPatchTicketWithInvalidDto() throws Exception {
+        // Arrange
+        UUID ticketId = restMinion.postTicket(
+                jwt0, buildUpProjectId, ticketTitle0, ticketDescription0, dateOfTomorrow, new ArrayList<>()
+        );
+        
+        TicketPatchDto ticketPatchDto =
+                new TicketPatchDto(
+                        "", null, null, null, null
+                );
+
+        // Act & Assert
+        mockMvc.perform(
+                patch("/tickets/" + ticketId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(ticketPatchDto))
+                        .header("Authorization", jwt0))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void testPostTicketWithInvalidDto() throws Exception {
+        // Arrange
+        TicketPostDto ticketPostDto =
+                new TicketPostDto(
+                        buildUpProjectId, "", "", dateOfTomorrow, new ArrayList<>()
+                );
+
+        // Act & Assert
+        mockMvc.perform(
+                post("/tickets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(ticketPostDto))
+                        .header("Authorization", jwt0))
+                .andExpect(status().isBadRequest());
+    }
 }
