@@ -64,9 +64,13 @@ public class PhaseDomainService {
         return initializedPhase;
     }
 
-    private Phase addPhase(Phase phase, UUID previousPhaseId) throws NoPhaseFoundException, UnrelatedPhaseException {
+    private Phase addPhase(Phase phase, UUID previousPhaseId) throws NoProjectFoundException, NoPhaseFoundException, UnrelatedPhaseException {
         if (!projectDataOfPhaseRepository.existsByProjectId(phase.getProjectId())) {
             throw new NoProjectFoundException("could not find project with id: " + phase.getProjectId());
+        }
+        if (phase.getNextPhase() != null) {
+            throw new ImpossibleException("phase with id: " + phase.getId()
+                    + " illegally specified a next phase before being added to the phase chain.");
         }
 
         Phase previousPhase = null;
@@ -171,17 +175,20 @@ public class PhaseDomainService {
         Phase oldNextPhase = patchedPhase.getNextPhase();
         Phase oldPreviousPhase = patchedPhase.getPreviousPhase();
 
+        // no change
+        UUID currentPreviousPhaseId = patchedPhase.getPreviousPhase() == null ? null : patchedPhase.getPreviousPhase().getId();
+        if (currentPreviousPhaseId == previousPhaseId) {
+            return;
+        }
+
         this.removePhaseFromCurrentPosition(patchedPhase);
         this.addPhase(patchedPhase, previousPhaseId);
 
-        // up to three positions updated -> up to three events published
+        // up to two positions updated -> up to two events published
         List<PhasePositionUpdatedEvent> events = new ArrayList<>();
         events.add(new PhasePositionUpdatedEvent(patchedPhase.getId(), previousPhaseId, patchedPhase.getProjectId()));
         if (oldNextPhase != null) {
             events.add(new PhasePositionUpdatedEvent(oldNextPhase.getId(), oldPreviousPhase, patchedPhase.getProjectId()));
-        }
-        if (previousPhaseId != null) {
-            events.add(new PhasePositionUpdatedEvent(previousPhaseId, patchedPhase.getId(), patchedPhase.getProjectId()));
         }
         events.forEach(eventPublisher::publishEvent);
     }
@@ -189,7 +196,7 @@ public class PhaseDomainService {
 
     // delete
 
-    public void deleteById(UUID id) throws NoPhaseFoundException, LastPhaseException {
+    public void deleteById(UUID id) throws NoPhaseFoundException, LastPhaseException, PhaseIsNotEmptyException {
         Phase phase = this.getPhaseById(id);
         if (phase.isFirst() && phase.isLast()) {
             throw new LastPhaseException(
@@ -235,11 +242,10 @@ public class PhaseDomainService {
             phase.setNextPhase(null);
             phaseRepository.save(nextPhase);
         }
-
         phaseRepository.save(phase);
     }
 
-    public void deletePhasesByProjectId(UUID projectId) {
+    private void deletePhasesByProjectId(UUID projectId) {
         List<Phase> deletedPhases = phaseRepository.deleteByProjectId(projectId); // bypasses last phase check
         deletedPhases.forEach( phase ->
                 eventPublisher.publishEvent(new PhaseDeletedEvent(phase.getId(), phase.getProjectId()))
