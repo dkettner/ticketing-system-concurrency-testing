@@ -53,6 +53,9 @@ public class Phase {
     }
 
     public void setPreviousPhase(Phase phase) {
+        if (phase != null && phase.equals(this)) {
+            throw new PhaseException("A phase cannot be its own previous phase");
+        }
         if (phase != null && !this.projectId.equals(phase.getProjectId())) {
             throw new UnrelatedPhaseException(
                     "The new previousPhase with id: " + phase.getId() + " belongs to the project with id: " + phase.getProjectId() +
@@ -63,6 +66,9 @@ public class Phase {
     }
 
     public void setNextPhase(Phase phase) {
+        if (phase != null && phase.equals(this)) {
+            throw new PhaseException("A phase cannot be its own next phase");
+        }
         if (phase != null && !this.projectId.equals(phase.getProjectId())) {
             throw new UnrelatedPhaseException(
                     "The new nextPhase with id: " + phase.getId() + " belongs to the project with id: " + phase.getProjectId() +
