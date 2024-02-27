@@ -235,7 +235,7 @@ public class TicketDomainService {
         eventPublisher.publishEvent(new TicketDeletedEvent(ticket.getId(), ticket.getProjectId(), ticket.getPhaseId()));
     }
 
-    public void deleteTicketsByProjectId(UUID projectId) {
+    private void deleteTicketsByProjectId(UUID projectId) {
         ticketRepository.deleteByProjectId(projectId);
     }
 
