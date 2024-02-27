@@ -22,6 +22,7 @@ import com.kett.TicketSystem.user.domain.events.UserCreatedEvent;
 import com.kett.TicketSystem.user.domain.events.UserDeletedEvent;
 import com.kett.TicketSystem.common.exceptions.NoUserFoundException;
 import com.kett.TicketSystem.user.domain.events.UserPatchedEvent;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
@@ -250,6 +251,7 @@ public class MembershipDomainService {
     @EventListener
     @Async
     public void handleProjectCreatedEvent(ProjectCreatedEvent projectCreatedEvent) {
+        MDC.put("parentTransactionId", projectCreatedEvent.getTransactionInformation().toString());
         projectDataOfMembershipRepository.save(new ProjectDataOfMembership(projectCreatedEvent.getProjectId()));
         Membership defaultMembership = new Membership(
                 projectCreatedEvent.getProjectId(),
@@ -262,6 +264,7 @@ public class MembershipDomainService {
     @EventListener
     @Async
     public void handleDefaultProjectCreatedEvent(DefaultProjectCreatedEvent defaultProjectCreatedEvent) {
+        MDC.put("parentTransactionId", defaultProjectCreatedEvent.getTransactionInformation().toString());
         projectDataOfMembershipRepository.save(new ProjectDataOfMembership(defaultProjectCreatedEvent.getProjectId()));
         Membership defaultMembership = new Membership(
                 defaultProjectCreatedEvent.getProjectId(),
@@ -285,6 +288,7 @@ public class MembershipDomainService {
     @EventListener
     @Async
     public void handleUserCreatedEvent(UserCreatedEvent userCreatedEvent) {
+        MDC.put("parentTransactionId", userCreatedEvent.getTransactionInformation().toString());
         if (!userDataOfMembershipRepository.existsByUserId(userCreatedEvent.getUserId())) {
             userDataOfMembershipRepository.save(new UserDataOfMembership(userCreatedEvent.getUserId(), userCreatedEvent.getEmailAddress()));
         }
@@ -293,6 +297,7 @@ public class MembershipDomainService {
     @EventListener
     @Async
     public void handleUserPatchedEvent(UserPatchedEvent userPatchedEvent) {
+        MDC.put("parentTransactionId", userPatchedEvent.getTransactionInformation().toString());
         UserDataOfMembership userDataOfMembership =
                 userDataOfMembershipRepository
                         .findByUserId(userPatchedEvent.getUserId())

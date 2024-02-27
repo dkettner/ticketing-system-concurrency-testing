@@ -19,6 +19,7 @@ import com.kett.TicketSystem.phase.domain.exceptions.PhaseIsNotEmptyException;
 import com.kett.TicketSystem.ticket.domain.events.TicketCreatedEvent;
 import com.kett.TicketSystem.ticket.domain.events.TicketDeletedEvent;
 import com.kett.TicketSystem.ticket.domain.events.TicketPhaseUpdatedEvent;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
@@ -252,6 +253,7 @@ public class PhaseDomainService {
     @EventListener
     @Async
     public void handleDefaultProjectCreated(DefaultProjectCreatedEvent defaultProjectCreatedEvent) {
+        MDC.put("parentTransactionId", defaultProjectCreatedEvent.getTransactionInformation().toString());
         projectDataOfPhaseRepository.save(new ProjectDataOfPhase(defaultProjectCreatedEvent.getProjectId()));
 
         Phase backlog = new Phase(defaultProjectCreatedEvent.getProjectId(), "BACKLOG", null, null);
@@ -268,6 +270,7 @@ public class PhaseDomainService {
     @EventListener
     @Async
     public void handleProjectDeletedEvent(ProjectDeletedEvent projectDeletedEvent) {
+        MDC.put("parentTransactionId", projectDeletedEvent.getTransactionInformation().toString());
         projectDataOfPhaseRepository.deleteByProjectId(projectDeletedEvent.getProjectId());
         this.deletePhasesByProjectId(projectDeletedEvent.getProjectId());
     }
@@ -275,6 +278,7 @@ public class PhaseDomainService {
     @EventListener
     @Async
     public void handleProjectCreatedEvent(ProjectCreatedEvent projectCreatedEvent) {
+        MDC.put("parentTransactionId", projectCreatedEvent.getTransactionInformation().toString());
         projectDataOfPhaseRepository.save(new ProjectDataOfPhase(projectCreatedEvent.getProjectId()));
         this.createPhase(
                 new Phase(projectCreatedEvent.getProjectId(), "BACKLOG", null, null),

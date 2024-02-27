@@ -177,7 +177,7 @@ public class EventLogger {
     @EventListener
     public void handleUserCreatedEvent(UserCreatedEvent userCreatedEvent) {
         logger.trace(
-                "user created -> " +
+                " user created -> " +
                         "userId:" + userCreatedEvent.getUserId() +
                         ", name:" + userCreatedEvent.getName() +
                         ", email:" + userCreatedEvent.getEmailAddress()

@@ -21,6 +21,7 @@ import com.kett.TicketSystem.ticket.repository.*;
 import com.kett.TicketSystem.user.domain.events.UserCreatedEvent;
 import com.kett.TicketSystem.user.domain.events.UserDeletedEvent;
 import com.kett.TicketSystem.user.domain.events.UserPatchedEvent;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
@@ -245,6 +246,7 @@ public class TicketDomainService {
     @EventListener
     @Async
     public void handleMembershipDeletedEvent(MembershipDeletedEvent membershipDeletedEvent) {
+        MDC.put("parentTransactionId", membershipDeletedEvent.getTransactionInformation().toString());
         List<Ticket> tickets =
                 ticketRepository
                         .findByProjectId(membershipDeletedEvent.getProjectId())
@@ -261,6 +263,7 @@ public class TicketDomainService {
     @EventListener
     @Async
     public void handleMembershipAcceptedEvent(MembershipAcceptedEvent membershipAcceptedEvent) {
+        MDC.put("parentTransactionId", membershipAcceptedEvent.getTransactionInformation().toString());
         membershipDataOfTicketRepository.save(
                 new MembershipDataOfTicket(
                         membershipAcceptedEvent.getMembershipId(),
@@ -273,12 +276,14 @@ public class TicketDomainService {
     @EventListener
     @Async
     public void handleProjectCreatedEvent(ProjectCreatedEvent projectCreatedEvent) {
+        MDC.put("parentTransactionId", projectCreatedEvent.getTransactionInformation().toString());
         projectDataOfTicketRepository.save(new ProjectDataOfTicket(projectCreatedEvent.getProjectId()));
     }
 
     @EventListener
     @Async
     public void handleDefaultProjectCreatedEvent(DefaultProjectCreatedEvent defaultProjectCreatedEvent) {
+        MDC.put("parentTransactionId", defaultProjectCreatedEvent.getTransactionInformation().toString());
         projectDataOfTicketRepository.save(new ProjectDataOfTicket(defaultProjectCreatedEvent.getProjectId()));
     }
 
@@ -286,6 +291,7 @@ public class TicketDomainService {
     @EventListener
     @Async
     public void handleProjectDeletedEvent(ProjectDeletedEvent projectDeletedEvent) {
+        MDC.put("parentTransactionId", projectDeletedEvent.getTransactionInformation().toString());
         this.deleteTicketsByProjectId(projectDeletedEvent.getProjectId());
         projectDataOfTicketRepository.deleteByProjectId(projectDeletedEvent.getProjectId());
     }
@@ -312,18 +318,21 @@ public class TicketDomainService {
     @EventListener
     @Async
     public void handlePhaseDeletedEvent(PhaseDeletedEvent phaseDeletedEvent) {
+        MDC.put("parentTransactionId", phaseDeletedEvent.getTransactionInformation().toString());
         phaseDataOfTicketRepository.deleteByPhaseId(phaseDeletedEvent.getPhaseId());
     }
 
     @EventListener
     @Async
     public void handleUserCreatedEvent(UserCreatedEvent userCreatedEvent) {
+        MDC.put("parentTransactionId", userCreatedEvent.getTransactionInformation().toString());
         userDataOfTicketRepository.save(new UserDataOfTicket(userCreatedEvent.getUserId(), userCreatedEvent.getEmailAddress()));
     }
 
     @EventListener
     @Async
     public void handleUserPatchedEvent(UserPatchedEvent userPatchedEvent) {
+        MDC.put("parentTransactionId", userPatchedEvent.getTransactionInformation().toString());
         UserDataOfTicket userDataOfTicket = userDataOfTicketRepository.findByUserId(userPatchedEvent.getUserId()).get(0);
         userDataOfTicket.setUserEmail(userPatchedEvent.getEmailAddress());
         userDataOfTicketRepository.save(userDataOfTicket);
@@ -332,6 +341,7 @@ public class TicketDomainService {
     @EventListener
     @Async
     public void handleUserDeletedEvent(UserDeletedEvent userDeletedEvent) {
+        MDC.put("parentTransactionId", userDeletedEvent.getTransactionInformation().toString());
         userDataOfTicketRepository.deleteByUserId(userDeletedEvent.getUserId());
     }
 }

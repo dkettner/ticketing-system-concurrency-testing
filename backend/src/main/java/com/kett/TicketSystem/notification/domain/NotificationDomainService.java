@@ -14,6 +14,7 @@ import com.kett.TicketSystem.ticket.domain.events.TicketUnassignedEvent;
 import com.kett.TicketSystem.user.domain.events.UserCreatedEvent;
 import com.kett.TicketSystem.user.domain.events.UserDeletedEvent;
 import com.kett.TicketSystem.user.domain.events.UserPatchedEvent;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
@@ -103,6 +104,7 @@ public class NotificationDomainService {
     @EventListener
     @Async
     public void handleUnacceptedProjectMembershipCreatedEvent(UnacceptedProjectMembershipCreatedEvent unacceptedProjectMembershipCreatedEvent) {
+        MDC.put("parentTransactionId", unacceptedProjectMembershipCreatedEvent.getTransactionInformation().toString());
         String message = "You got invited to project " + unacceptedProjectMembershipCreatedEvent.getProjectId() + ".";
 
         Notification notification = new Notification(unacceptedProjectMembershipCreatedEvent.getInviteeId(), message);
@@ -112,6 +114,7 @@ public class NotificationDomainService {
     @EventListener
     @Async
     public void handleTicketAssignedEvent(TicketAssignedEvent ticketAssignedEvent) {
+        MDC.put("parentTransactionId", ticketAssignedEvent.getTransactionInformation().toString());
         String message =
                 "You got assigned to ticket " + ticketAssignedEvent.getTicketId() +
                 " of project " + ticketAssignedEvent.getProjectId() + ".";
@@ -123,6 +126,7 @@ public class NotificationDomainService {
     @EventListener
     @Async
     public void handleTicketUnassignedEvent(TicketUnassignedEvent ticketUnassignedEvent) {
+        MDC.put("parentTransactionId", ticketUnassignedEvent.getTransactionInformation().toString());
         String message =
                 "Your assignment to ticket " + ticketUnassignedEvent.getTicketId() +
                 " of project " + ticketUnassignedEvent.getProjectId() +
@@ -135,12 +139,14 @@ public class NotificationDomainService {
     @EventListener
     @Async
     public void handleUserCreatedEvent(UserCreatedEvent userCreatedEvent) {
+        MDC.put("parentTransactionId", userCreatedEvent.getTransactionInformation().toString());
         userDataOfNotificationRepository.save(new UserDataOfNotification(userCreatedEvent.getUserId(), userCreatedEvent.getEmailAddress()));
     }
 
     @EventListener
     @Async
     public void handleUserPatchedEvent(UserPatchedEvent userPatchedEvent) {
+        MDC.put("parentTransactionId", userPatchedEvent.getTransactionInformation().toString());
         UserDataOfNotification userDataOfNotification =
                 userDataOfNotificationRepository
                         .findByUserId(userPatchedEvent.getUserId())
@@ -152,6 +158,7 @@ public class NotificationDomainService {
     @EventListener
     @Async
     public void handleUserDeletedEvent(UserDeletedEvent userDeletedEvent) {
+        MDC.put("parentTransactionId", userDeletedEvent.getTransactionInformation().toString());
         this.deleteByRecipientId(userDeletedEvent.getUserId());
         userDataOfNotificationRepository.deleteByUserId(userDeletedEvent.getUserId());
     }

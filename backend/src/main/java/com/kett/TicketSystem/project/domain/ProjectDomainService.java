@@ -14,6 +14,7 @@ import com.kett.TicketSystem.project.repository.UserDataOfProjectRepository;
 import com.kett.TicketSystem.user.domain.events.UserCreatedEvent;
 import com.kett.TicketSystem.user.domain.events.UserDeletedEvent;
 import com.kett.TicketSystem.user.domain.events.UserPatchedEvent;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
@@ -102,6 +103,7 @@ public class ProjectDomainService {
     @EventListener
     @Async
     public void handleUserCreated(UserCreatedEvent userCreatedEvent) {
+        MDC.put("parentTransactionId", userCreatedEvent.getTransactionInformation().toString());
         userDataOfProjectRepository.save(new UserDataOfProject(userCreatedEvent.getUserId(), userCreatedEvent.getEmailAddress()));
         Project defaultProject = new Project(
                 "Example Project",
@@ -119,6 +121,7 @@ public class ProjectDomainService {
     @EventListener
     @Async
     public void handleUserPatchedEvent(UserPatchedEvent userPatchedEvent) {
+        MDC.put("parentTransactionId", userPatchedEvent.getTransactionInformation().toString());
         UserDataOfProject userDataOfProject =
                 userDataOfProjectRepository
                         .findByUserId(userPatchedEvent.getUserId())
@@ -130,6 +133,7 @@ public class ProjectDomainService {
     @EventListener
     @Async
     public void handleUserDeletedEvent(UserDeletedEvent userDeletedEvent) {
+        MDC.put("parentTransactionId", userDeletedEvent.getTransactionInformation().toString());
         userDataOfProjectRepository.deleteByUserId(userDeletedEvent.getUserId());
     }
 }
