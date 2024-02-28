@@ -306,7 +306,7 @@ public class MembershipDomainService {
     public void handleUserCreatedEvent(UserCreatedEvent userCreatedEvent) {
         MDC.put("parentTransactionId", userCreatedEvent.getTransactionInformation().toString());
 
-        if (!userDataOfMembershipRepository.existsByUserId(userCreatedEvent.getUserId())) {
+        if (userDataOfMembershipRepository.existsByUserId(userCreatedEvent.getUserId())) {
             logger.warn("possible race condition in handleUserCreatedEvent: User with id "
                     + userCreatedEvent.getUserId() + " already exists.");
         }
