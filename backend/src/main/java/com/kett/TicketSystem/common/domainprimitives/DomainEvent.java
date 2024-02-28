@@ -14,7 +14,8 @@ public abstract class DomainEvent {
     protected final UUID parentTransactionId;
 
     public UUID getTransactionInformation() {
-        return transactionId != null ? transactionId : parentTransactionId;
+        UUID transactionInfo = transactionId != null ? transactionId : parentTransactionId;
+        return transactionInfo != null ? transactionInfo : new UUID(0, 0); // TODO: this should never happen, but it does
     }
 
     protected DomainEvent() {
