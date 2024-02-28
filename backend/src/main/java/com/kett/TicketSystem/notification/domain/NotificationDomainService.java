@@ -14,6 +14,8 @@ import com.kett.TicketSystem.ticket.domain.events.TicketUnassignedEvent;
 import com.kett.TicketSystem.user.domain.events.UserCreatedEvent;
 import com.kett.TicketSystem.user.domain.events.UserDeletedEvent;
 import com.kett.TicketSystem.user.domain.events.UserPatchedEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
@@ -29,6 +31,7 @@ import java.util.UUID;
 public class NotificationDomainService {
     private final NotificationRepository notificationRepository;
     private final UserDataOfNotificationRepository userDataOfNotificationRepository;
+    private final Logger logger = LoggerFactory.getLogger(NotificationDomainService.class);
 
     @Autowired
     public NotificationDomainService(
@@ -107,6 +110,11 @@ public class NotificationDomainService {
         MDC.put("parentTransactionId", unacceptedProjectMembershipCreatedEvent.getTransactionInformation().toString());
         String message = "You got invited to project " + unacceptedProjectMembershipCreatedEvent.getProjectId() + ".";
 
+        if (!userDataOfNotificationRepository.existsByUserId(unacceptedProjectMembershipCreatedEvent.getInviteeId())) {
+            logger.warn("possible race condition in handleUnacceptedProjectMembershipCreatedEvent: " +
+                    "no user data found for user: " + unacceptedProjectMembershipCreatedEvent.getInviteeId());
+        }
+
         Notification notification = new Notification(unacceptedProjectMembershipCreatedEvent.getInviteeId(), message);
         notificationRepository.save(notification);
     }
@@ -118,6 +126,11 @@ public class NotificationDomainService {
         String message =
                 "You got assigned to ticket " + ticketAssignedEvent.getTicketId() +
                 " of project " + ticketAssignedEvent.getProjectId() + ".";
+
+        if (!userDataOfNotificationRepository.existsByUserId(ticketAssignedEvent.getAssigneeId())) {
+            logger.warn("possible race condition in handleTicketAssignedEvent: " +
+                    "no user data found for user: " + ticketAssignedEvent.getAssigneeId());
+        }
 
         Notification notification = new Notification(ticketAssignedEvent.getAssigneeId(), message);
         notificationRepository.save(notification);
@@ -132,6 +145,11 @@ public class NotificationDomainService {
                 " of project " + ticketUnassignedEvent.getProjectId() +
                 " has been revoked" + ".";
 
+        if (!userDataOfNotificationRepository.existsByUserId(ticketUnassignedEvent.getAssigneeId())) {
+            logger.warn("possible race condition in handleTicketUnassignedEvent: " +
+                    "no user data found for user: " + ticketUnassignedEvent.getAssigneeId());
+        }
+
         Notification notification = new Notification(ticketUnassignedEvent.getAssigneeId(), message);
         notificationRepository.save(notification);
     }
@@ -140,6 +158,10 @@ public class NotificationDomainService {
     @Async
     public void handleUserCreatedEvent(UserCreatedEvent userCreatedEvent) {
         MDC.put("parentTransactionId", userCreatedEvent.getTransactionInformation().toString());
+
+        if (userDataOfNotificationRepository.existsByUserId(userCreatedEvent.getUserId())) {
+            logger.warn("possible race condition in handleUserCreatedEvent: User with id " + userCreatedEvent.getUserId() + " already exists.");
+        }
         userDataOfNotificationRepository.save(new UserDataOfNotification(userCreatedEvent.getUserId(), userCreatedEvent.getEmailAddress()));
     }
 
@@ -147,6 +169,11 @@ public class NotificationDomainService {
     @Async
     public void handleUserPatchedEvent(UserPatchedEvent userPatchedEvent) {
         MDC.put("parentTransactionId", userPatchedEvent.getTransactionInformation().toString());
+
+        if (!userDataOfNotificationRepository.existsByUserId(userPatchedEvent.getUserId())) {
+            logger.warn("possible race condition in handleUserPatchedEvent: User with id " + userPatchedEvent.getUserId() + " does not exist.");
+        }
+
         UserDataOfNotification userDataOfNotification =
                 userDataOfNotificationRepository
                         .findByUserId(userPatchedEvent.getUserId())
@@ -160,6 +187,10 @@ public class NotificationDomainService {
     public void handleUserDeletedEvent(UserDeletedEvent userDeletedEvent) {
         MDC.put("parentTransactionId", userDeletedEvent.getTransactionInformation().toString());
         this.deleteByRecipientId(userDeletedEvent.getUserId());
-        userDataOfNotificationRepository.deleteByUserId(userDeletedEvent.getUserId());
+        Integer deletedEntries = userDataOfNotificationRepository.deleteByUserId(userDeletedEvent.getUserId());
+        if (deletedEntries != 1) {
+            logger.warn("possible race condition in handleUserDeletedEvent: " + deletedEntries +
+                    " entries were deleted when deleting user with id: " + userDeletedEvent.getUserId());
+        }
     }
 }

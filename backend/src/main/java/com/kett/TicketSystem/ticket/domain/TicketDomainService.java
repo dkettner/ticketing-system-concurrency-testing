@@ -21,6 +21,7 @@ import com.kett.TicketSystem.ticket.repository.*;
 import com.kett.TicketSystem.user.domain.events.UserCreatedEvent;
 import com.kett.TicketSystem.user.domain.events.UserDeletedEvent;
 import com.kett.TicketSystem.user.domain.events.UserPatchedEvent;
+import org.slf4j.Logger;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
@@ -41,6 +42,7 @@ public class TicketDomainService {
     private final MembershipDataOfTicketRepository membershipDataOfTicketRepository;
     private final PhaseDataOfTicketRepository phaseDataOfTicketRepository;
     private final UserDataOfTicketRepository userDataOfTicketRepository;
+    private final Logger logger = org.slf4j.LoggerFactory.getLogger(TicketDomainService.class);
 
     @Autowired
     public TicketDomainService(
@@ -257,13 +259,25 @@ public class TicketDomainService {
         tickets.forEach(ticket -> ticket.removeAssignee(membershipDeletedEvent.getUserId()));
         ticketRepository.saveAll(tickets);
 
-        membershipDataOfTicketRepository.deleteByMembershipId(membershipDeletedEvent.getMembershipId());
+        Integer deletedEntries = membershipDataOfTicketRepository.deleteByMembershipId(membershipDeletedEvent.getMembershipId());
+        if (deletedEntries != 1) {
+            logger.warn(
+                    "possible race condition in handleMembershipDeletedEvent: deleted " + deletedEntries +
+                            " entries for membershipId: " + membershipDeletedEvent.getMembershipId() + " instead of 1."
+            );
+        }
     }
 
     @EventListener
     @Async
     public void handleMembershipAcceptedEvent(MembershipAcceptedEvent membershipAcceptedEvent) {
         MDC.put("parentTransactionId", membershipAcceptedEvent.getTransactionInformation().toString());
+
+        if (membershipDataOfTicketRepository.existsByMembershipId(membershipAcceptedEvent.getMembershipId())
+            || membershipDataOfTicketRepository.existsByUserIdAndProjectId(membershipAcceptedEvent.getUserId(), membershipAcceptedEvent.getProjectId())) {
+            logger.warn("possible race condition in handleMembershipAcceptedEvent: membershipId: " + membershipAcceptedEvent.getMembershipId() + " already exists.");
+        }
+
         membershipDataOfTicketRepository.save(
                 new MembershipDataOfTicket(
                         membershipAcceptedEvent.getMembershipId(),
@@ -277,6 +291,11 @@ public class TicketDomainService {
     @Async
     public void handleProjectCreatedEvent(ProjectCreatedEvent projectCreatedEvent) {
         MDC.put("parentTransactionId", projectCreatedEvent.getTransactionInformation().toString());
+
+        if (projectDataOfTicketRepository.existsByProjectId(projectCreatedEvent.getProjectId())) {
+            logger.warn("possible race condition in handleProjectCreatedEvent: projectId: " + projectCreatedEvent.getProjectId() + " already exists.");
+        }
+
         projectDataOfTicketRepository.save(new ProjectDataOfTicket(projectCreatedEvent.getProjectId()));
     }
 
@@ -284,6 +303,11 @@ public class TicketDomainService {
     @Async
     public void handleDefaultProjectCreatedEvent(DefaultProjectCreatedEvent defaultProjectCreatedEvent) {
         MDC.put("parentTransactionId", defaultProjectCreatedEvent.getTransactionInformation().toString());
+
+        if (projectDataOfTicketRepository.existsByProjectId(defaultProjectCreatedEvent.getProjectId())) {
+            logger.warn("possible race condition in handleProjectCreatedEvent: projectId: " + defaultProjectCreatedEvent.getProjectId() + " already exists.");
+        }
+
         projectDataOfTicketRepository.save(new ProjectDataOfTicket(defaultProjectCreatedEvent.getProjectId()));
     }
 
@@ -293,11 +317,18 @@ public class TicketDomainService {
     public void handleProjectDeletedEvent(ProjectDeletedEvent projectDeletedEvent) {
         MDC.put("parentTransactionId", projectDeletedEvent.getTransactionInformation().toString());
         this.deleteTicketsByProjectId(projectDeletedEvent.getProjectId());
-        projectDataOfTicketRepository.deleteByProjectId(projectDeletedEvent.getProjectId());
+        Integer deletedEntries = projectDataOfTicketRepository.deleteByProjectId(projectDeletedEvent.getProjectId());
+        if (deletedEntries != 1) {
+            logger.warn("possible race condition in handleProjectDeletedEvent: deleted " + deletedEntries + " entries for projectId: " + projectDeletedEvent.getProjectId() + " instead of 1.");
+        }
     }
 
     @EventListener
     public void handlePhaseCreatedEvent(PhaseCreatedEvent phaseCreatedEvent) {
+        if (phaseDataOfTicketRepository.existsByPhaseId(phaseCreatedEvent.getPhaseId())) {
+            logger.warn("possible race condition in handlePhaseCreatedEvent: phaseId: " + phaseCreatedEvent.getPhaseId() + " already exists.");
+        }
+
         phaseDataOfTicketRepository.save(
                 new PhaseDataOfTicket(
                         phaseCreatedEvent.getPhaseId(),
@@ -310,6 +341,14 @@ public class TicketDomainService {
     @EventListener
     public void handlePhasePositionUpdatedEvent(PhasePositionUpdatedEvent phasePositionUpdatedEvent) {
         List<PhaseDataOfTicket> foundPhaseData = phaseDataOfTicketRepository.findByPhaseId(phasePositionUpdatedEvent.getPhaseId());
+
+        if (foundPhaseData.isEmpty()) {
+            logger.warn("possible race condition in handlePhasePositionUpdatedEvent: phaseId: " + phasePositionUpdatedEvent.getPhaseId() + " does not exist.");
+        }
+        if (!phaseDataOfTicketRepository.existsByPhaseId(phasePositionUpdatedEvent.getPreviousPhaseId())) {
+            logger.warn("possible rac condition in handlePhasePositionUpdatedEvent: previousPhaseId: " + phasePositionUpdatedEvent.getPreviousPhaseId() + " does not exist.");
+        }
+
         PhaseDataOfTicket phaseDataOfTicket = foundPhaseData.get(0);
         phaseDataOfTicket.setPreviousPhaseId(phasePositionUpdatedEvent.getPreviousPhaseId());
         phaseDataOfTicketRepository.save(phaseDataOfTicket);
@@ -319,13 +358,20 @@ public class TicketDomainService {
     @Async
     public void handlePhaseDeletedEvent(PhaseDeletedEvent phaseDeletedEvent) {
         MDC.put("parentTransactionId", phaseDeletedEvent.getTransactionInformation().toString());
-        phaseDataOfTicketRepository.deleteByPhaseId(phaseDeletedEvent.getPhaseId());
+        Integer deletedEntries = phaseDataOfTicketRepository.deleteByPhaseId(phaseDeletedEvent.getPhaseId());
+        if (deletedEntries != 1) {
+            logger.warn("possible race condition in handlePhaseDeletedEvent: deleted " + deletedEntries + " entries for phaseId: " + phaseDeletedEvent.getPhaseId() + " instead of 1.");
+        }
     }
 
     @EventListener
     @Async
     public void handleUserCreatedEvent(UserCreatedEvent userCreatedEvent) {
         MDC.put("parentTransactionId", userCreatedEvent.getTransactionInformation().toString());
+
+        if (userDataOfTicketRepository.existsByUserId(userCreatedEvent.getUserId())) {
+            logger.warn("possible race condition in handleUserCreatedEvent: userId: " + userCreatedEvent.getUserId() + " already exists.");
+        }
         userDataOfTicketRepository.save(new UserDataOfTicket(userCreatedEvent.getUserId(), userCreatedEvent.getEmailAddress()));
     }
 
@@ -333,6 +379,11 @@ public class TicketDomainService {
     @Async
     public void handleUserPatchedEvent(UserPatchedEvent userPatchedEvent) {
         MDC.put("parentTransactionId", userPatchedEvent.getTransactionInformation().toString());
+
+        if (!userDataOfTicketRepository.existsByUserId(userPatchedEvent.getUserId())) {
+            logger.warn("possible race condition in handleUserPatchedEvent: userId: " + userPatchedEvent.getUserId() + " does not exist.");
+        }
+
         UserDataOfTicket userDataOfTicket = userDataOfTicketRepository.findByUserId(userPatchedEvent.getUserId()).get(0);
         userDataOfTicket.setUserEmail(userPatchedEvent.getEmailAddress());
         userDataOfTicketRepository.save(userDataOfTicket);
@@ -342,6 +393,9 @@ public class TicketDomainService {
     @Async
     public void handleUserDeletedEvent(UserDeletedEvent userDeletedEvent) {
         MDC.put("parentTransactionId", userDeletedEvent.getTransactionInformation().toString());
-        userDataOfTicketRepository.deleteByUserId(userDeletedEvent.getUserId());
+        Integer deletedEntries = userDataOfTicketRepository.deleteByUserId(userDeletedEvent.getUserId());
+        if (deletedEntries != 1) {
+            logger.warn("possible race condition in handleUserDeletedEvent: deleted " + deletedEntries + " entries for userId: " + userDeletedEvent.getUserId() + " instead of 1.");
+        }
     }
 }

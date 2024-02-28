@@ -38,6 +38,7 @@ public class PhaseDomainService {
     private final PhaseRepository phaseRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final ProjectDataOfPhaseRepository projectDataOfPhaseRepository;
+    private final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(PhaseDomainService.class);
 
     @Autowired
     public PhaseDomainService(
@@ -242,6 +243,12 @@ public class PhaseDomainService {
 
     public void deletePhasesByProjectId(UUID projectId) {
         List<Phase> deletedPhases = phaseRepository.deleteByProjectId(projectId); // bypasses last phase check
+
+        if (deletedPhases.isEmpty()) {
+            logger.warn("possible race condition in handleProjectDeletedEvent: " +
+                    "No phases were deleted when deleting all phases of project with id: " + projectId);
+        }
+
         deletedPhases.forEach( phase ->
                 eventPublisher.publishEvent(new PhaseDeletedEvent(phase.getId(), phase.getProjectId()))
         );
@@ -254,6 +261,14 @@ public class PhaseDomainService {
     @Async
     public void handleDefaultProjectCreated(DefaultProjectCreatedEvent defaultProjectCreatedEvent) {
         MDC.put("parentTransactionId", defaultProjectCreatedEvent.getTransactionInformation().toString());
+
+        if (projectDataOfPhaseRepository.existsByProjectId(defaultProjectCreatedEvent.getProjectId())) {
+            logger.warn(
+                    "possible race condition in handleDefaultProjectCreated: Project with id " +
+                            defaultProjectCreatedEvent.getProjectId() + " already exists."
+            );
+        }
+
         projectDataOfPhaseRepository.save(new ProjectDataOfPhase(defaultProjectCreatedEvent.getProjectId()));
 
         Phase backlog = new Phase(defaultProjectCreatedEvent.getProjectId(), "BACKLOG", null, null);
@@ -271,7 +286,14 @@ public class PhaseDomainService {
     @Async
     public void handleProjectDeletedEvent(ProjectDeletedEvent projectDeletedEvent) {
         MDC.put("parentTransactionId", projectDeletedEvent.getTransactionInformation().toString());
-        projectDataOfPhaseRepository.deleteByProjectId(projectDeletedEvent.getProjectId());
+        Integer deletedEntries = projectDataOfPhaseRepository.deleteByProjectId(projectDeletedEvent.getProjectId());
+
+        if (deletedEntries != 1) {
+            logger.warn("possible race condition in handleProjectDeletedEvent: " + deletedEntries +
+                    " entries were deleted when deleting project with id: " + projectDeletedEvent.getProjectId()
+            );
+        }
+
         this.deletePhasesByProjectId(projectDeletedEvent.getProjectId());
     }
 
@@ -279,6 +301,14 @@ public class PhaseDomainService {
     @Async
     public void handleProjectCreatedEvent(ProjectCreatedEvent projectCreatedEvent) {
         MDC.put("parentTransactionId", projectCreatedEvent.getTransactionInformation().toString());
+
+        if (projectDataOfPhaseRepository.existsByProjectId(projectCreatedEvent.getProjectId())) {
+            logger.warn(
+                    "possible race condition in handleDefaultProjectCreated: Project with id " +
+                            projectCreatedEvent.getProjectId() + " already exists."
+            );
+        }
+
         projectDataOfPhaseRepository.save(new ProjectDataOfPhase(projectCreatedEvent.getProjectId()));
         this.createPhase(
                 new Phase(projectCreatedEvent.getProjectId(), "BACKLOG", null, null),
@@ -288,6 +318,20 @@ public class PhaseDomainService {
 
     @EventListener
     public void handleTicketCreatedEvent(TicketCreatedEvent ticketCreatedEvent) {
+        if (!projectDataOfPhaseRepository.existsByProjectId(ticketCreatedEvent.getProjectId())) {
+            logger.warn("possible race condition in handleTicketCreatedEvent: " +
+                    "Project with id " + ticketCreatedEvent.getProjectId() +
+                    " does not exist but a ticket with id " + ticketCreatedEvent.getTicketId() + " was created."
+            );
+        }
+
+        if (phaseRepository.findByProjectId(ticketCreatedEvent.getProjectId()).isEmpty()) {
+            logger.warn("possible race condition in handleTicketCreatedEvent: " +
+                    "Project with id " + ticketCreatedEvent.getProjectId() +
+                    " has no phases but a ticket with id " + ticketCreatedEvent.getTicketId() + " was created."
+            );
+        }
+
         Phase firstPhaseOfProject =
                 getFirstPhaseByProjectId(ticketCreatedEvent.getProjectId())
                 .orElseThrow( () ->
@@ -300,16 +344,36 @@ public class PhaseDomainService {
 
     @EventListener
     public void handleTicketPhaseUpdatedEvent(TicketPhaseUpdatedEvent ticketPhaseUpdatedEvent) {
+        if (!phaseRepository.existsById(ticketPhaseUpdatedEvent.getNewPhaseId())) {
+            logger.warn("possible race condition in handleTicketPhaseUpdatedEvent: " +
+                    "Phase with id " + ticketPhaseUpdatedEvent.getNewPhaseId() +
+                    " does not exist but a ticket with id " + ticketPhaseUpdatedEvent.getTicketId() + " was moved to it."
+            );
+        }
+        if (!phaseRepository.existsById(ticketPhaseUpdatedEvent.getOldPhaseId())) {
+            logger.warn("possible race condition in handleTicketPhaseUpdatedEvent: " +
+                    "Phase with id " + ticketPhaseUpdatedEvent.getOldPhaseId() +
+                    " does not exist but a ticket with id " + ticketPhaseUpdatedEvent.getTicketId() + " was moved from it."
+            );
+        }
+
         Phase oldPhase = this.getPhaseById(ticketPhaseUpdatedEvent.getOldPhaseId());
         Phase newPhase = this.getPhaseById(ticketPhaseUpdatedEvent.getNewPhaseId());
 
         // TODO: publish event to initiate rollback ?
         if (!oldPhase.getProjectId().equals(newPhase.getProjectId())) {
-            throw new UnrelatedPhaseException(
-                    "The update of ticket: " + ticketPhaseUpdatedEvent.getTicketId() + " caused a conflict: " +
+            String errorMessage = "The update of ticket: " + ticketPhaseUpdatedEvent.getTicketId() + " caused a conflict: " +
                     "the old phase (id: " + oldPhase.getId() + ", projectId: " + oldPhase.getProjectId() + ") " +
                     "and new phase (id: " + newPhase.getId() + ", projectId: " + newPhase.getProjectId() + ") " +
-                    "are not related."
+                    "are not related.";
+
+            logger.warn(errorMessage);
+            throw new UnrelatedPhaseException(errorMessage);
+        }
+
+        if (oldPhase.getTicketCount() == 0) {
+            logger.warn("possible race condition in handleTicketPhaseUpdatedEvent: " +
+                    "The old phase with id: " + oldPhase.getId() + " already had no tickets but a ticket was moved from it."
             );
         }
 
@@ -322,7 +386,21 @@ public class PhaseDomainService {
 
     @EventListener
     public void handleTicketDeletedEvent(TicketDeletedEvent ticketDeletedEvent) {
+        if (!phaseRepository.existsById(ticketDeletedEvent.getPhaseId())) {
+            logger.warn(
+                    "possible race condition in handleTicketDeletedEvent: " +
+                    "Phase with id " + ticketDeletedEvent.getPhaseId() +
+                    " does not exist but a ticket with id " + ticketDeletedEvent.getTicketId() + " was deleted from it."
+            );
+        }
+
         Phase phase = this.getPhaseById(ticketDeletedEvent.getPhaseId());
+
+        if (phase.getTicketCount() == 0) {
+            logger.warn("possible race condition in handleTicketDeletedEvent: " +
+                    "The phase with id: " + phase.getId() + " already had no tickets but a ticket was deleted from it."
+            );
+        }
         phase.decreaseTicketCount();
         phaseRepository.save(phase);
     }

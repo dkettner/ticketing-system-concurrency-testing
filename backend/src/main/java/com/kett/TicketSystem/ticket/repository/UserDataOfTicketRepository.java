@@ -13,4 +13,6 @@ public interface UserDataOfTicketRepository extends JpaRepository<UserDataOfTick
     List<UserDataOfTicket> findByUserId(UUID userId);
     List<UserDataOfTicket> findByUserEmailEquals(EmailAddress emailAddress);
     Integer deleteByUserId(UUID userId);
+
+    Boolean existsByUserId(UUID userId);
 }

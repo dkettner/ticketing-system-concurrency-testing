@@ -13,4 +13,6 @@ public interface UserDataOfNotificationRepository extends JpaRepository<UserData
     List<UserDataOfNotification> findByUserId(UUID userId);
     List<UserDataOfNotification> findByUserEmailEquals(EmailAddress emailAddress);
     Integer deleteByUserId(UUID userId);
+
+    Boolean existsByUserId(UUID inviteeId);
 }

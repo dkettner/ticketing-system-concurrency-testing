@@ -16,6 +16,8 @@ public interface MembershipDataOfTicketRepository extends JpaRepository<Membersh
     Integer deleteByProjectId(UUID projectId);
 
     Boolean existsByUserId(UUID membershipId);
-    boolean existsByUserIdAndProjectId(UUID assigneeId, UUID projectId);
+    Boolean existsByUserIdAndProjectId(UUID assigneeId, UUID projectId);
     Boolean existsByMembershipIdAndProjectId(UUID membershipId, UUID projectId);
+
+    Boolean existsByMembershipId(UUID membershipId);
 }

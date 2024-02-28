@@ -14,4 +14,8 @@ public interface UserDataOfProjectRepository extends JpaRepository<UserDataOfPro
     List<UserDataOfProject> findByUserEmailEquals(EmailAddress emailAddress);
 
     Integer deleteByUserId(UUID userId);
+
+    Boolean existsByUserId(UUID userId);
+
+    Boolean existsByUserEmailEquals(EmailAddress emailAddress);
 }

@@ -14,6 +14,8 @@ import com.kett.TicketSystem.project.repository.UserDataOfProjectRepository;
 import com.kett.TicketSystem.user.domain.events.UserCreatedEvent;
 import com.kett.TicketSystem.user.domain.events.UserDeletedEvent;
 import com.kett.TicketSystem.user.domain.events.UserPatchedEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
@@ -31,6 +33,7 @@ public class ProjectDomainService {
     private final ProjectRepository projectRepository;
     private final UserDataOfProjectRepository userDataOfProjectRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final Logger logger = LoggerFactory.getLogger(ProjectDomainService.class);
 
     @Autowired
     public ProjectDomainService(ProjectRepository projectRepository, UserDataOfProjectRepository userDataOfProjectRepository, ApplicationEventPublisher eventPublisher) {
@@ -86,8 +89,10 @@ public class ProjectDomainService {
         Long numOfDeletedProjects = projectRepository.removeById(id);
 
         if (numOfDeletedProjects == 0) {
+            logger.warn("possible race condition in deleteProjectById: No project was deleted when deleting project with id: " + id);
             throw new NoProjectFoundException("could not delete because there was no project with id: " + id);
         } else if (numOfDeletedProjects > 1) {
+            logger.warn("possible race condition in deleteProjectById: Multiple projects were deleted when deleting project with id: " + id);
             throw new ImpossibleException(
                     "!!! This should not happen. " +
                     "Multiple projects were deleted when deleting project with id: " + id
@@ -104,6 +109,15 @@ public class ProjectDomainService {
     @Async
     public void handleUserCreated(UserCreatedEvent userCreatedEvent) {
         MDC.put("parentTransactionId", userCreatedEvent.getTransactionInformation().toString());
+
+        if (userDataOfProjectRepository.existsByUserId(userCreatedEvent.getUserId())) {
+            logger.warn("possible race condition in handleUserCreated: User with id " + userCreatedEvent.getUserId() + " already exists.");
+        }
+
+        if (userDataOfProjectRepository.existsByUserEmailEquals(userCreatedEvent.getEmailAddress())) {
+            logger.warn("possible race condition in handleUserCreated: User with email " + userCreatedEvent.getEmailAddress() + " already exists.");
+        }
+
         userDataOfProjectRepository.save(new UserDataOfProject(userCreatedEvent.getUserId(), userCreatedEvent.getEmailAddress()));
         Project defaultProject = new Project(
                 "Example Project",
@@ -122,6 +136,11 @@ public class ProjectDomainService {
     @Async
     public void handleUserPatchedEvent(UserPatchedEvent userPatchedEvent) {
         MDC.put("parentTransactionId", userPatchedEvent.getTransactionInformation().toString());
+
+        if (!userDataOfProjectRepository.existsByUserId(userPatchedEvent.getUserId())) {
+            logger.warn("possible race condition in handleUserPatchedEvent: User with id " + userPatchedEvent.getUserId() + " does not exist.");
+        }
+
         UserDataOfProject userDataOfProject =
                 userDataOfProjectRepository
                         .findByUserId(userPatchedEvent.getUserId())
@@ -134,6 +153,12 @@ public class ProjectDomainService {
     @Async
     public void handleUserDeletedEvent(UserDeletedEvent userDeletedEvent) {
         MDC.put("parentTransactionId", userDeletedEvent.getTransactionInformation().toString());
-        userDataOfProjectRepository.deleteByUserId(userDeletedEvent.getUserId());
+        Integer deletedEntries = userDataOfProjectRepository.deleteByUserId(userDeletedEvent.getUserId());
+        if (deletedEntries != 1) {
+            logger.warn(
+                    "possible race condition in handleUserDeletedEvent: " + deletedEntries +
+                            " entries were deleted when deleting user with id: " + userDeletedEvent.getUserId()
+            );
+        }
     }
 }

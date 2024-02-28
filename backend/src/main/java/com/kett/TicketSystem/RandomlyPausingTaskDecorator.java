@@ -14,7 +14,7 @@ public class RandomlyPausingTaskDecorator implements TaskDecorator {
             try {
                 Random random = new Random();
                 if (random.nextBoolean()) {
-                    int pauseTime = random.nextInt(200);
+                    int pauseTime = 600; //random.nextInt(600);
                     logger.trace("Pausing thread for " + pauseTime + " ms");
                     Thread.sleep(pauseTime);
                 }

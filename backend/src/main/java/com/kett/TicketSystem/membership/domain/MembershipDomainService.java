@@ -40,6 +40,7 @@ public class MembershipDomainService {
     private final ApplicationEventPublisher eventPublisher;
     private final UserDataOfMembershipRepository userDataOfMembershipRepository;
     private final ProjectDataOfMembershipRepository projectDataOfMembershipRepository;
+    private final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MembershipDomainService.class);
 
     @Autowired
     public MembershipDomainService(
@@ -252,6 +253,11 @@ public class MembershipDomainService {
     @Async
     public void handleProjectCreatedEvent(ProjectCreatedEvent projectCreatedEvent) {
         MDC.put("parentTransactionId", projectCreatedEvent.getTransactionInformation().toString());
+
+        if (projectDataOfMembershipRepository.existsByProjectId(projectCreatedEvent.getProjectId())) {
+            logger.warn("possible race condition in handleProjectCreatedEvent: Project with id " + projectCreatedEvent.getProjectId() + " already exists.");
+        }
+
         projectDataOfMembershipRepository.save(new ProjectDataOfMembership(projectCreatedEvent.getProjectId()));
         Membership defaultMembership = new Membership(
                 projectCreatedEvent.getProjectId(),
@@ -265,6 +271,12 @@ public class MembershipDomainService {
     @Async
     public void handleDefaultProjectCreatedEvent(DefaultProjectCreatedEvent defaultProjectCreatedEvent) {
         MDC.put("parentTransactionId", defaultProjectCreatedEvent.getTransactionInformation().toString());
+
+        if (projectDataOfMembershipRepository.existsByProjectId(defaultProjectCreatedEvent.getProjectId())) {
+            logger.warn("possible race condition in handleDefaultProjectCreatedEvent: Project with id " +
+                    defaultProjectCreatedEvent.getProjectId() + " already exists.");
+        }
+
         projectDataOfMembershipRepository.save(new ProjectDataOfMembership(defaultProjectCreatedEvent.getProjectId()));
         Membership defaultMembership = new Membership(
                 defaultProjectCreatedEvent.getProjectId(),
@@ -282,13 +294,23 @@ public class MembershipDomainService {
                         new MembershipDeletedEvent(membership.getId(), membership.getProjectId(), membership.getUserId())
                 )
         );
-        projectDataOfMembershipRepository.deleteByProjectId(projectDeletedEvent.getProjectId());
+        Integer deletedEntries = projectDataOfMembershipRepository.deleteByProjectId(projectDeletedEvent.getProjectId());
+        if (deletedEntries != 1) {
+            logger.warn("possible race condition in handleProjectDeletedEvent: " +
+                    "deleted " + deletedEntries + " entries for project with id " + projectDeletedEvent.getProjectId());
+        }
     }
 
     @EventListener
     @Async
     public void handleUserCreatedEvent(UserCreatedEvent userCreatedEvent) {
         MDC.put("parentTransactionId", userCreatedEvent.getTransactionInformation().toString());
+
+        if (!userDataOfMembershipRepository.existsByUserId(userCreatedEvent.getUserId())) {
+            logger.warn("possible race condition in handleUserCreatedEvent: User with id "
+                    + userCreatedEvent.getUserId() + " already exists.");
+        }
+
         if (!userDataOfMembershipRepository.existsByUserId(userCreatedEvent.getUserId())) {
             userDataOfMembershipRepository.save(new UserDataOfMembership(userCreatedEvent.getUserId(), userCreatedEvent.getEmailAddress()));
         }
@@ -298,6 +320,11 @@ public class MembershipDomainService {
     @Async
     public void handleUserPatchedEvent(UserPatchedEvent userPatchedEvent) {
         MDC.put("parentTransactionId", userPatchedEvent.getTransactionInformation().toString());
+
+        if (!userDataOfMembershipRepository.existsByUserId(userPatchedEvent.getUserId())) {
+            logger.warn("possible race condition in handleUserPatchedEvent: User with id "
+                    + userPatchedEvent.getUserId() + " does not exist.");
+        }
         UserDataOfMembership userDataOfMembership =
                 userDataOfMembershipRepository
                         .findByUserId(userPatchedEvent.getUserId())
@@ -315,6 +342,10 @@ public class MembershipDomainService {
                     new MembershipDeletedEvent(membership.getId(), membership.getProjectId(), membership.getUserId())
             );
         });
-        userDataOfMembershipRepository.deleteByUserId(userDeletedEvent.getUserId());
+        Integer deletedEntries = userDataOfMembershipRepository.deleteByUserId(userDeletedEvent.getUserId());
+        if (deletedEntries != 1) {
+            logger.warn("possible race condition in handleUserDeletedEvent: " + deletedEntries +
+                    " entries were deleted when deleting user with id: " + userDeletedEvent.getUserId());
+        }
     }
 }
