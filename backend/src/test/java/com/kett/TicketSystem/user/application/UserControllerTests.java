@@ -16,6 +16,7 @@ import com.kett.TicketSystem.user.repository.UserRepository;
 import com.kett.TicketSystem.util.EventCatcher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -25,8 +26,8 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.transaction.annotation.Transactional;
 
-import javax.servlet.http.Cookie;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -40,6 +41,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles({ "test" })
 @AutoConfigureMockMvc
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
+@Transactional
 public class UserControllerTests {
     private final MockMvc mockMvc;
     private final ObjectMapper objectMapper;
@@ -132,6 +134,8 @@ public class UserControllerTests {
                         .andExpect(status().isOk())
                         .andReturn();
         jwt4 = "Bearer " + Objects.requireNonNull(postAuthenticationResult4.getResponse().getContentAsString());
+
+        Thread.sleep(2000);
     }
 
     @AfterEach

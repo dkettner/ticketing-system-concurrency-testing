@@ -2,6 +2,7 @@ package com.kett.TicketSystem.phase.application;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
+import com.kett.TicketSystem.membership.domain.events.MembershipAcceptedEvent;
 import com.kett.TicketSystem.phase.application.dto.PhasePutNameDto;
 import com.kett.TicketSystem.phase.application.dto.PhasePutPositionDto;
 import com.kett.TicketSystem.phase.application.dto.PhasePostDto;
@@ -23,6 +24,7 @@ import com.kett.TicketSystem.util.EventCatcher;
 import com.kett.TicketSystem.util.RestRequestHelper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -107,12 +109,21 @@ public class PhaseControllerTests {
         userName = "Geralt";
         userEmail = "il.brucho@netflix.com";
         userPassword = "DiesDasAnanasiospjefosias9999023";
+
+        eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
         userId = restMinion.postUser(userName, userEmail, userPassword);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
+
         jwt = restMinion.authenticateUser(userEmail, userPassword);
 
         buildUpProjectName = "toss a coin to your witcher";
         buildUpProjectDescription = "50ct please";
+
+        eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
         buildUpProjectId = restMinion.postProject(jwt, buildUpProjectName, buildUpProjectDescription);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
 
         differentProjectName = "Stormcloaks";
         differentProjectDescription = "Not the Imperial Legion.";
@@ -121,6 +132,8 @@ public class PhaseControllerTests {
         phaseName1 = "phaseName1";
         phaseName2 = "phaseName2";
         phaseName3 = "phaseName3";
+
+        Thread.sleep(2000);
     }
 
     @AfterEach
@@ -478,7 +491,8 @@ public class PhaseControllerTests {
 
         eventCatcher.catchEventOfType(PhaseCreatedEvent.class);
         eventPublisher.publishEvent(new DefaultProjectCreatedEvent(tempProjectId, userId));
-        Thread.sleep(100); // give enough time to handle event
+
+        Thread.sleep(1000); // give enough time to handle event
 
         // test at least one PhaseCreatedEvent
         await().until(eventCatcher::hasCaughtEvent);
@@ -524,7 +538,8 @@ public class PhaseControllerTests {
 
         eventCatcher.catchEventOfType(PhaseCreatedEvent.class);
         eventPublisher.publishEvent(new ProjectCreatedEvent(tempProjectId, userId));
-        Thread.sleep(100); // give enough time to handle event
+
+        Thread.sleep(1000); // give enough time to handle event
 
         // test event
         await().until(eventCatcher::hasCaughtEvent);
@@ -558,9 +573,11 @@ public class PhaseControllerTests {
     }
 
     @Test
-    public void consumeTicketCreatedEvent() {
+    public void consumeTicketCreatedEvent() throws Exception {
         UUID ticketId = UUID.randomUUID();
         eventPublisher.publishEvent(new TicketCreatedEvent(ticketId, buildUpProjectId, userId));
+
+        Thread.sleep(1000); // give enough time to handle event
 
         // get phaseId of buildUpProject
         List<Phase> phases = phaseDomainService.getPhasesByProjectId(buildUpProjectId);
@@ -576,9 +593,11 @@ public class PhaseControllerTests {
     }
 
     @Test
-    public void consumeTicketDeletedEvent() {
+    public void consumeTicketDeletedEvent() throws Exception{
         UUID ticketId = UUID.randomUUID();
         eventPublisher.publishEvent(new TicketCreatedEvent(ticketId, buildUpProjectId, userId));
+
+        Thread.sleep(1000);
 
         // get phaseId of buildUpProject
         List<Phase> phases = phaseDomainService.getPhasesByProjectId(buildUpProjectId);
@@ -608,6 +627,8 @@ public class PhaseControllerTests {
         // mock post ticket
         UUID ticketId = UUID.randomUUID();
         eventPublisher.publishEvent(new TicketCreatedEvent(ticketId, buildUpProjectId, userId));
+
+        Thread.sleep(1000); // give enough time to handle event
 
         assertEquals(1, phaseDomainService.getPhaseById(backlogId).getTicketCount());
         assertEquals(0, phaseDomainService.getPhaseById(doneId).getTicketCount());

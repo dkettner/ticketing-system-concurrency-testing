@@ -22,6 +22,7 @@ import com.kett.TicketSystem.util.EventCatcher;
 import com.kett.TicketSystem.util.RestRequestHelper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -64,6 +65,7 @@ public class MembershipControllerTests {
     private String userPassword0;
     private String jwt0;
     private UUID defaultProjectId0;
+    private UUID defaultProjectMembershipId0;
 
     private UUID userId1;
     private String userName1;
@@ -100,10 +102,12 @@ public class MembershipControllerTests {
         userEmail0 = "harry.potter@hw.uk";
         userPassword0 = "snapeShape88";
 
-        eventCatcher.catchEventOfType(DefaultProjectCreatedEvent.class);
+        eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
         userId0 = restMinion.postUser(userName0, userEmail0, userPassword0);
         await().until(eventCatcher::hasCaughtEvent);
-        defaultProjectId0 = ((DefaultProjectCreatedEvent) eventCatcher.getEvent()).getProjectId();
+        MembershipAcceptedEvent membershipAcceptedEvent = (MembershipAcceptedEvent) eventCatcher.getEvent();
+        defaultProjectId0 = membershipAcceptedEvent.getProjectId();
+        defaultProjectMembershipId0 = membershipAcceptedEvent.getMembershipId();
 
         jwt0 = restMinion.authenticateUser(userEmail0, userPassword0);
 
@@ -120,7 +124,7 @@ public class MembershipControllerTests {
 
         randomProjectId = UUID.randomUUID();
 
-        //dummyEventListener.deleteAllEvents();
+        Thread.sleep(1000);
     }
 
     @AfterEach
@@ -131,6 +135,7 @@ public class MembershipControllerTests {
         userId0 = null;
         jwt0 = null;
         defaultProjectId0 = null;
+        defaultProjectMembershipId0 = null;
 
         userName1 = null;
         userEmail1 = null;
@@ -147,33 +152,26 @@ public class MembershipControllerTests {
 
     @Test
     public void getMembershipByIdTest() throws Exception {
-        String projectName0 = "Project 0";
-        String projectDescription0 = "Description 0";
-        UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
-
-        UUID membershipId = restMinion.postMembership(jwt0, projectId0, userId1, Role.MEMBER);
-
         MvcResult getResult =
                 mockMvc.perform(
-                                get("/memberships/" + membershipId)
+                                get("/memberships/" + defaultProjectMembershipId0)
                                         .contentType(MediaType.APPLICATION_JSON)
-                                        .header("Authorization", jwt1))
+                                        .header("Authorization", jwt0))
                         .andExpect(status().isOk())
-                        .andExpect(jsonPath("$.id").value(membershipId.toString()))
-                        .andExpect(jsonPath("$.projectId").value(projectId0.toString()))
-                        .andExpect(jsonPath("$.userId").value(userId1.toString()))
-                        .andExpect(jsonPath("$.role").value(Role.MEMBER.toString()))
-                        .andExpect(jsonPath("$.state").value(State.OPEN.toString()))
+                        .andExpect(jsonPath("$.id").value(defaultProjectMembershipId0.toString()))
+                        .andExpect(jsonPath("$.projectId").value(defaultProjectId0.toString()))
+                        .andExpect(jsonPath("$.userId").value(userId0.toString()))
+                        .andExpect(jsonPath("$.role").value(Role.ADMIN.toString()))
+                        .andExpect(jsonPath("$.state").value(State.ACCEPTED.toString()))
                         .andReturn();
     }
 
     @Test
     public void getMembershipByIdAsAdminTest() throws Exception {
-        String projectName0 = "Project 0";
-        String projectDescription0 = "Description 0";
-        UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
 
-        UUID membershipId = restMinion.postMembership(jwt0, projectId0, userId1, Role.MEMBER);
+        eventCatcher.catchEventOfType(UnacceptedProjectMembershipCreatedEvent.class);
+        UUID membershipId = restMinion.postMembership(jwt0, defaultProjectId0, userId1, Role.MEMBER);
+        await().until(eventCatcher::hasCaughtEvent);
 
         MvcResult getResult =
                 mockMvc.perform(
@@ -182,7 +180,7 @@ public class MembershipControllerTests {
                                         .header("Authorization", jwt0))
                         .andExpect(status().isOk())
                         .andExpect(jsonPath("$.id").value(membershipId.toString()))
-                        .andExpect(jsonPath("$.projectId").value(projectId0.toString()))
+                        .andExpect(jsonPath("$.projectId").value(defaultProjectId0.toString()))
                         .andExpect(jsonPath("$.userId").value(userId1.toString()))
                         .andExpect(jsonPath("$.role").value(Role.MEMBER.toString()))
                         .andExpect(jsonPath("$.state").value(State.OPEN.toString()))
@@ -193,7 +191,11 @@ public class MembershipControllerTests {
     public void getMembershipsByUserIdAndEmailQueryTest() throws Exception {
         String projectName0 = "Project 0";
         String projectDescription0 = "Description 0";
+
+        eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
         UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
 
         MvcResult getByUserIdResult =
                 mockMvc.perform(
@@ -228,9 +230,16 @@ public class MembershipControllerTests {
     public void getMembershipsByProjectIdQueryTest() throws Exception {
         String projectName0 = "Project 0";
         String projectDescription0 = "Description 0";
-        UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
 
+        eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
+        UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
+
+        eventCatcher.catchEventOfType(UnacceptedProjectMembershipCreatedEvent.class);
         UUID membershipId = restMinion.postMembership(jwt0, projectId0, userId1, Role.MEMBER);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
 
         MvcResult getResult =
                 mockMvc.perform(
@@ -256,7 +265,11 @@ public class MembershipControllerTests {
     public void postMembershipTest() throws Exception {
         String projectName0 = "Project 0";
         String projectDescription0 = "Description 0";
+
+        eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
         UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
 
         eventCatcher.catchEventOfType(UnacceptedProjectMembershipCreatedEvent.class);
         MembershipPostDto membershipPostDto = new MembershipPostDto(projectId0, userId1, Role.MEMBER);
@@ -298,9 +311,16 @@ public class MembershipControllerTests {
     public void putMembershipStateTest() throws Exception {
         String projectName0 = "Project 0";
         String projectDescription0 = "Description 0";
-        UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
 
+        eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
+        UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
+
+        eventCatcher.catchEventOfType(UnacceptedProjectMembershipCreatedEvent.class);
         UUID membershipId = restMinion.postMembership(jwt0, projectId0, userId1, Role.MEMBER);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
 
         eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
         MembershipPutStateDto membershipPutStateDto = new MembershipPutStateDto(State.ACCEPTED);
@@ -333,9 +353,16 @@ public class MembershipControllerTests {
     public void putMembershipStateBackToOpenTest() throws Exception {
         String projectName0 = "Project 0";
         String projectDescription0 = "Description 0";
-        UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
 
+        eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
+        UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
+
+        eventCatcher.catchEventOfType(UnacceptedProjectMembershipCreatedEvent.class);
         UUID membershipId = restMinion.postMembership(jwt0, projectId0, userId1, Role.MEMBER);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
 
         // accept
         MembershipPutStateDto membershipPutStateDto0 = new MembershipPutStateDto(State.ACCEPTED);
@@ -372,8 +399,16 @@ public class MembershipControllerTests {
     public void putMembershipStateBackToOpenAsAdminTest() throws Exception {
         String projectName0 = "Project 0";
         String projectDescription0 = "Description 0";
+
+        eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
         UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
+
+        eventCatcher.catchEventOfType(UnacceptedProjectMembershipCreatedEvent.class);
         UUID membershipId = restMinion.postMembership(jwt0, projectId0, userId1, Role.MEMBER);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
 
         // accept
         MembershipPutStateDto membershipPutStateDto0 = new MembershipPutStateDto(State.ACCEPTED);
@@ -410,8 +445,16 @@ public class MembershipControllerTests {
     public void putMembershipStateAsAdminTest() throws Exception {
         String projectName0 = "Project 0";
         String projectDescription0 = "Description 0";
+
+        eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
         UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
+
+        eventCatcher.catchEventOfType(UnacceptedProjectMembershipCreatedEvent.class);
         UUID membershipId = restMinion.postMembership(jwt0, projectId0, userId1, Role.MEMBER);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
 
         MembershipPutStateDto membershipPutStateDto = new MembershipPutStateDto(State.ACCEPTED);
         MvcResult putResult =
@@ -436,8 +479,16 @@ public class MembershipControllerTests {
     public void putMembershipRoleAsAdminTest() throws Exception {
         String projectName0 = "Project 0";
         String projectDescription0 = "Description 0";
+
+        eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
         UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
+
+        eventCatcher.catchEventOfType(UnacceptedProjectMembershipCreatedEvent.class);
         UUID membershipId = restMinion.postMembership(jwt0, projectId0, userId1, Role.MEMBER);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
 
         MembershipPutRoleDto membershipPutStateDto = new MembershipPutRoleDto(Role.ADMIN);
         MvcResult putResult =
@@ -462,8 +513,16 @@ public class MembershipControllerTests {
     public void putMembershipRoleTest() throws Exception {
         String projectName0 = "Project 0";
         String projectDescription0 = "Description 0";
+
+        eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
         UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
+
+        eventCatcher.catchEventOfType(UnacceptedProjectMembershipCreatedEvent.class);
         UUID membershipId = restMinion.postMembership(jwt0, projectId0, userId1, Role.MEMBER);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
 
         MembershipPutRoleDto membershipPutStateDto = new MembershipPutRoleDto(Role.ADMIN);
         MvcResult putResult =
@@ -488,8 +547,16 @@ public class MembershipControllerTests {
     public void deleteOtherMembershipAsAdminTest() throws Exception {
         String projectName0 = "Project 0";
         String projectDescription0 = "Description 0";
+
+        eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
         UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
+
+        eventCatcher.catchEventOfType(UnacceptedProjectMembershipCreatedEvent.class);
         UUID membershipId = restMinion.postMembership(jwt0, projectId0, userId1, Role.MEMBER);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
 
         eventCatcher.catchEventOfType(MembershipDeletedEvent.class);
         MvcResult deleteResult =
@@ -515,8 +582,16 @@ public class MembershipControllerTests {
     public void deleteOwnMembershipAsMemberTest() throws Exception {
         String projectName0 = "Project 0";
         String projectDescription0 = "Description 0";
+
+        eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
         UUID projectId0 = restMinion.postProject(jwt0, projectName0, projectDescription0);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
+
+        eventCatcher.catchEventOfType(UnacceptedProjectMembershipCreatedEvent.class);
         UUID membershipId = restMinion.postMembership(jwt0, projectId0, userId1, Role.MEMBER);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
 
         eventCatcher.catchEventOfType(MembershipDeletedEvent.class);
         MvcResult deleteResult =
@@ -584,7 +659,6 @@ public class MembershipControllerTests {
     public void consumeProjectDeletedEventTest() {
         eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
         eventPublisher.publishEvent(new ProjectCreatedEvent(randomProjectId, userId0));
-
         await().until(eventCatcher::hasCaughtEvent);
         UUID membershipId = ((MembershipAcceptedEvent) eventCatcher.getEvent()).getMembershipId();
 
@@ -621,4 +695,3 @@ public class MembershipControllerTests {
         assertThrows(NoMembershipFoundException.class, () -> membershipDomainService.getMembershipsByUserId(userId0));
     }
 }
-

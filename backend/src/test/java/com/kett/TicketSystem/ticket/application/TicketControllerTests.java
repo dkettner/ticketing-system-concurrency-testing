@@ -4,7 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
 import com.kett.TicketSystem.membership.domain.Role;
 import com.kett.TicketSystem.membership.domain.State;
+import com.kett.TicketSystem.membership.domain.events.MembershipAcceptedEvent;
+import com.kett.TicketSystem.membership.domain.events.UnacceptedProjectMembershipCreatedEvent;
 import com.kett.TicketSystem.membership.repository.MembershipRepository;
+import com.kett.TicketSystem.phase.domain.events.PhaseCreatedEvent;
 import com.kett.TicketSystem.phase.repository.PhaseRepository;
 import com.kett.TicketSystem.project.repository.ProjectRepository;
 import com.kett.TicketSystem.ticket.application.dto.TicketPatchDto;
@@ -22,6 +25,7 @@ import com.kett.TicketSystem.util.EventCatcher;
 import com.kett.TicketSystem.util.RestRequestHelper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -121,31 +125,59 @@ public class TicketControllerTests {
         userName0 = "Geralt";
         userEmail0 = "il.brucho@netflix.com";
         userPassword0 = "DiesDasAnanasiospjefosias9999023";
+
+        eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
         userId0 = restMinion.postUser(userName0, userEmail0, userPassword0);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
+
         jwt0 = restMinion.authenticateUser(userEmail0, userPassword0);
 
         userName1 = "Harry Potter";
         userEmail1 = "harry.potter@hw.uk";
         userPassword1 = "snapeShape88";
+
+        eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
         userId1 = restMinion.postUser(userName1, userEmail1, userPassword1);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
+
         jwt1 = restMinion.authenticateUser(userEmail1, userPassword1);
 
         userName2 = "Ronald Weasley";
         userEmail2 = "RonRonRonWeasley@hw.uk";
         userPassword2 = "lkasjdfoijwaefo8238298";
+
+        eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
         userId2 = restMinion.postUser(userName2, userEmail2, userPassword2);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
+
         jwt2 = restMinion.authenticateUser(userEmail2, userPassword2);
 
         buildUpProjectName = "toss a coin to your witcher";
         buildUpProjectDescription = "50ct please";
-        buildUpProjectId = restMinion.postProject(jwt0, buildUpProjectName, buildUpProjectDescription);
 
+        eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
+        buildUpProjectId = restMinion.postProject(jwt0, buildUpProjectName, buildUpProjectDescription);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
+
+        eventCatcher.catchEventOfType(UnacceptedProjectMembershipCreatedEvent.class);
         UUID membershipId = restMinion.postMembership(jwt0, buildUpProjectId, userId1, Role.MEMBER);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
+
+        eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
         restMinion.putMembershipState(jwt1, membershipId, State.ACCEPTED);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
 
         ticketTitle0 = "My first ticket";
         ticketDescription0 = "do stuff";
         dateOfTomorrow = LocalDateTime.now().plusDays(1);
+
+        Thread.sleep(1000);
     }
 
     @AfterEach
@@ -184,9 +216,12 @@ public class TicketControllerTests {
 
     @Test
     public void getTicketByIdTest() throws Exception {
+        eventCatcher.catchEventOfType(TicketCreatedEvent.class);
         UUID ticketId = restMinion.postTicket(
                 jwt0, buildUpProjectId, ticketTitle0, ticketDescription0, dateOfTomorrow, new ArrayList<>()
         );
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
 
         MvcResult getResult =
                 mockMvc.perform(
@@ -206,16 +241,23 @@ public class TicketControllerTests {
 
     @Test
     public void getTicketByPhaseIdQueryTest() throws Exception {
+        eventCatcher.catchEventOfType(TicketCreatedEvent.class);
         UUID ticketId0 = restMinion.postTicket(
                 jwt0, buildUpProjectId, ticketTitle0, ticketDescription0, dateOfTomorrow, new ArrayList<>()
         );
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
 
         String ticketTitle1 = "blub";
         String ticketDescription1 = "asdlkfjaslkdfasdf";
         LocalDateTime dateOfTheDayAfterTomorrow = dateOfTomorrow.plusDays(1);
+
+        eventCatcher.catchEventOfType(TicketCreatedEvent.class);
         UUID ticketId1 = restMinion.postTicket(
                 jwt0, buildUpProjectId, ticketTitle1, ticketDescription1, dateOfTheDayAfterTomorrow, new ArrayList<>()
         );
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
 
         UUID backlogId = ticketDomainService.getTicketById(ticketId0).getPhaseId();
         MvcResult getResult =
@@ -246,24 +288,36 @@ public class TicketControllerTests {
     @Test
     public void getTicketByProjectIdQueryTest() throws Exception {
         // first ticket
+        eventCatcher.catchEventOfType(TicketCreatedEvent.class);
         UUID ticketId0 = restMinion.postTicket(
                 jwt0, buildUpProjectId, ticketTitle0, ticketDescription0, dateOfTomorrow, new ArrayList<>()
         );
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
 
         // post a second phase
         UUID backlogId = ticketDomainService.getTicketById(ticketId0).getPhaseId();
+        eventCatcher.catchEventOfType(PhaseCreatedEvent.class);
         UUID donePhaseId = restMinion.postPhase(jwt0, buildUpProjectId, "DONE", backlogId);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
 
         // second ticket
         String ticketTitle1 = "blub";
         String ticketDescription1 = "asdlkfjaslkdfasdf";
         LocalDateTime dateOfTheDayAfterTomorrow = dateOfTomorrow.plusDays(1);
+        eventCatcher.catchEventOfType(TicketCreatedEvent.class);
         UUID ticketId1 = restMinion.postTicket(
                 jwt0, buildUpProjectId, ticketTitle1, ticketDescription1, dateOfTheDayAfterTomorrow, new ArrayList<>()
         );
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
 
         // move first ticket to second phase
+        eventCatcher.catchEventOfType(TicketPhaseUpdatedEvent.class);
         restMinion.patchTicket(jwt0, ticketId0, null, null, null, donePhaseId, null);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
 
         MvcResult getResult =
                 mockMvc.perform(
@@ -292,26 +346,42 @@ public class TicketControllerTests {
 
     @Test
     public void getTicketByAssigneeIdQueryTest() throws Exception {
+        Thread.sleep(1000);
         List<UUID> assigneeIds = new ArrayList<>();
         assigneeIds.add(userId1);
 
         // first ticket to first project
+        eventCatcher.catchEventOfType(TicketCreatedEvent.class);
         UUID ticketId0 = restMinion.postTicket(
                 jwt0, buildUpProjectId, ticketTitle0, ticketDescription0, dateOfTomorrow, assigneeIds
         );
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
+
+        Thread.sleep(1000);
 
         // post a second project of different user
         String secondTitle = "second title";
         String secondDescription = "second description";
+        eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
         UUID secondProjectId = restMinion.postProject(jwt1, secondTitle, secondDescription);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
+
+        Thread.sleep(1000);
 
         // post second ticket to second project
         String ticketTitle1 = "blub";
         String ticketDescription1 = "asdlkfjaslkdfasdf";
         LocalDateTime dateOfTheDayAfterTomorrow = dateOfTomorrow.plusDays(1);
+        eventCatcher.catchEventOfType(TicketCreatedEvent.class);
         UUID ticketId1 = restMinion.postTicket(
                 jwt1, secondProjectId, ticketTitle1, ticketDescription1, dateOfTheDayAfterTomorrow, assigneeIds
         );
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
+
+        Thread.sleep(1000);
 
         MvcResult getResult =
                 mockMvc.perform(
@@ -379,9 +449,12 @@ public class TicketControllerTests {
 
     @Test
     public void patchTicketNameAndDescriptionAndDueTimeTest() throws Exception {
+        eventCatcher.catchEventOfType(TicketCreatedEvent.class);
         UUID ticketId = restMinion.postTicket(
                 jwt0, buildUpProjectId, ticketTitle0, ticketDescription0, dateOfTomorrow, new ArrayList<>()
         );
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
 
         String newTitle = "a totally new title";
         String newDescription = "never seen anything like this";
@@ -407,11 +480,18 @@ public class TicketControllerTests {
 
     @Test
     public void patchTicketPhaseIdTimeTest() throws Exception {
+        eventCatcher.catchEventOfType(TicketCreatedEvent.class);
         UUID ticketId = restMinion.postTicket(
                 jwt0, buildUpProjectId, ticketTitle0, ticketDescription0, dateOfTomorrow, new ArrayList<>()
         );
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
+
         UUID backlogPhaseId = ticketDomainService.getTicketById(ticketId).getPhaseId();
+        eventCatcher.catchEventOfType(PhaseCreatedEvent.class);
         UUID donePhaseId = restMinion.postPhase(jwt0, buildUpProjectId, "DONE", backlogPhaseId);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
 
         eventCatcher.catchEventOfType(TicketPhaseUpdatedEvent.class);
         TicketPatchDto ticketPatchDto = new TicketPatchDto(null, null, null, donePhaseId, null);
@@ -444,9 +524,12 @@ public class TicketControllerTests {
 
     @Test
     public void patchTicketAssigneeIdsTest() throws Exception {
+        eventCatcher.catchEventOfType(TicketCreatedEvent.class);
         UUID ticketId = restMinion.postTicket(
                 jwt0, buildUpProjectId, ticketTitle0, ticketDescription0, dateOfTomorrow, new ArrayList<>()
         );
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
 
         eventCatcher.catchEventOfType(TicketAssignedEvent.class);
         List<UUID> assigneeIds = new ArrayList<>();
@@ -480,9 +563,12 @@ public class TicketControllerTests {
 
     @Test
     public void deleteTicketTest() throws Exception {
+        eventCatcher.catchEventOfType(TicketCreatedEvent.class);
         UUID ticketId = restMinion.postTicket(
                 jwt0, buildUpProjectId, ticketTitle0, ticketDescription0, dateOfTomorrow, new ArrayList<>()
         );
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
 
         eventCatcher.catchEventOfType(TicketDeletedEvent.class);
         MvcResult deleteResult =

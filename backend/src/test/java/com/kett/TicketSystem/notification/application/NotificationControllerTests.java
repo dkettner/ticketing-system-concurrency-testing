@@ -14,6 +14,7 @@ import com.kett.TicketSystem.user.repository.UserRepository;
 import com.kett.TicketSystem.util.RestRequestHelper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -101,6 +102,8 @@ public class NotificationControllerTests {
         membershipId = UUID.randomUUID();
 
         notificationRepository.deleteAll();
+
+        Thread.sleep(1000);
     }
 
     @AfterEach
@@ -130,6 +133,8 @@ public class NotificationControllerTests {
         eventPublisher.publishEvent(new UnacceptedProjectMembershipCreatedEvent(membershipId, userId0, projectId));
         eventPublisher.publishEvent(new TicketAssignedEvent(ticketId, projectId, userId0));
         eventPublisher.publishEvent(new TicketUnassignedEvent(ticketId, projectId, userId0));
+
+        Thread.sleep(1000);
 
         MvcResult getByRecipientIdResult =
                 mockMvc.perform(
@@ -167,6 +172,8 @@ public class NotificationControllerTests {
     @Test
     public void getNotificationByIdTest() throws Exception {
         eventPublisher.publishEvent(new UnacceptedProjectMembershipCreatedEvent(membershipId, userId0, projectId));
+
+        Thread.sleep(1000);
 
         // find out notificationId
         MvcResult getByRecipientIdResult =
@@ -207,6 +214,8 @@ public class NotificationControllerTests {
     public void getNotificationOfOtherUserByIdTest() throws Exception {
         eventPublisher.publishEvent(new TicketAssignedEvent(ticketId, projectId, userId1));
 
+        Thread.sleep(1000);
+
         // find out notificationId
         MvcResult getByRecipientIdResult =
                 mockMvc.perform(
@@ -231,6 +240,8 @@ public class NotificationControllerTests {
     @Test
     public void patchNotificationTest() throws Exception {
         eventPublisher.publishEvent(new TicketAssignedEvent(ticketId, projectId, userId0));
+
+        Thread.sleep(1000);
 
         // find out notificationId
         MvcResult getByRecipientIdResult =
@@ -276,6 +287,8 @@ public class NotificationControllerTests {
     @Test
     public void deleteNotificationTest() throws Exception {
         eventPublisher.publishEvent(new TicketAssignedEvent(ticketId, projectId, userId0));
+
+        Thread.sleep(1000);
 
         // find out notificationId
         MvcResult getByRecipientIdResult =
@@ -324,7 +337,7 @@ public class NotificationControllerTests {
 
         // TODO: find more stable alternative for testing
         // shame: give services time to handle event
-        Thread.sleep(100);
+        Thread.sleep(1000);
 
         List<Notification> notifications = notificationDomainService.getNotificationsByRecipientId(userId0);
         assertEquals(1, notifications.size());
@@ -347,7 +360,7 @@ public class NotificationControllerTests {
 
         // TODO: find more stable alternative for testing
         // shame: give services time to handle event
-        Thread.sleep(100);
+        Thread.sleep(1000);
 
         List<Notification> notifications = notificationDomainService.getNotificationsByRecipientId(userId0);
         assertEquals(1, notifications.size());
@@ -370,7 +383,7 @@ public class NotificationControllerTests {
 
         // TODO: find more stable alternative for testing
         // shame: give services time to handle event
-        Thread.sleep(100);
+        Thread.sleep(1000);
 
         List<Notification> notifications = notificationDomainService.getNotificationsByRecipientId(userId0);
         assertEquals(1, notifications.size());

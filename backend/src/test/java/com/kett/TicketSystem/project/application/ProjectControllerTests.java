@@ -5,6 +5,7 @@ import com.jayway.jsonpath.JsonPath;
 import com.kett.TicketSystem.common.domainprimitives.EmailAddress;
 import com.kett.TicketSystem.common.exceptions.NoProjectFoundException;
 import com.kett.TicketSystem.membership.domain.events.LastProjectMemberDeletedEvent;
+import com.kett.TicketSystem.membership.domain.events.MembershipAcceptedEvent;
 import com.kett.TicketSystem.project.application.dto.ProjectPatchDto;
 import com.kett.TicketSystem.project.application.dto.ProjectPostDto;
 import com.kett.TicketSystem.project.domain.Project;
@@ -19,6 +20,7 @@ import com.kett.TicketSystem.util.EventCatcher;
 import com.kett.TicketSystem.util.RestRequestHelper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -94,15 +96,26 @@ public class ProjectControllerTests {
         userName = "Franz Gerald Stauffingen";
         userEmail = "franz.stauffingen@gmail.com";
         userPassword = "MyLittlePony4Ever!";
+
+        eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
         userId = restMinion.postUser(userName, userEmail, userPassword);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
+
         jwt = restMinion.authenticateUser(userEmail, userPassword);
 
         buildUpProjectName = "Mozzarella";
         buildUpProjectDescription = "What do you do with the white ball after drinking the mozzarella?";
+
+        eventCatcher.catchEventOfType(MembershipAcceptedEvent.class);
         buildUpProjectId = restMinion.postProject(jwt, buildUpProjectName, buildUpProjectDescription);
+        await().until(eventCatcher::hasCaughtEvent);
+        eventCatcher.getEvent();
 
         projectName = "My Little Project";
         projectDescription = "My very own project description";
+
+        Thread.sleep(1000);
     }
 
     @AfterEach
@@ -156,7 +169,7 @@ public class ProjectControllerTests {
         assertEquals(userId, projectCreatedEvent.getUserId());
     }
 
-    @Test
+    @RepeatedTest(5)
     public void getProjectTest() throws Exception {
         MvcResult getResult =
                 mockMvc.perform(
@@ -255,6 +268,8 @@ public class ProjectControllerTests {
                         buildUpProjectId
                 )
         );
+
+        Thread.sleep(1000);
 
         // test DefaultProjectCreatedEvent
         await().until(eventCatcher::hasCaughtEvent);
