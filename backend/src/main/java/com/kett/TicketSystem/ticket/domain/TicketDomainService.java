@@ -346,7 +346,7 @@ public class TicketDomainService {
             logger.warn("possible race condition in handlePhasePositionUpdatedEvent: phaseId: " + phasePositionUpdatedEvent.getPhaseId() + " does not exist.");
         }
         if (!phaseDataOfTicketRepository.existsByPhaseId(phasePositionUpdatedEvent.getPreviousPhaseId())) {
-            logger.warn("possible rac condition in handlePhasePositionUpdatedEvent: previousPhaseId: " + phasePositionUpdatedEvent.getPreviousPhaseId() + " does not exist.");
+            logger.warn("possible race condition in handlePhasePositionUpdatedEvent: previousPhaseId: " + phasePositionUpdatedEvent.getPreviousPhaseId() + " does not exist.");
         }
 
         PhaseDataOfTicket phaseDataOfTicket = foundPhaseData.get(0);

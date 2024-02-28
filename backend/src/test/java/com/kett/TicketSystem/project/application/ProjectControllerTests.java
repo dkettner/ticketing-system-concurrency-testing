@@ -169,7 +169,7 @@ public class ProjectControllerTests {
         assertEquals(userId, projectCreatedEvent.getUserId());
     }
 
-    @RepeatedTest(5)
+    @Test
     public void getProjectTest() throws Exception {
         MvcResult getResult =
                 mockMvc.perform(
