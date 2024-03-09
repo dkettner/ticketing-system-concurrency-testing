@@ -1,14 +1,194 @@
 <FindBugsFilter>
     <Match>
-        <Bug pattern="THI_NOTHING_TO_WAIT_ON"/>
+        <Bug pattern="AT_OPERATION_SEQUENCE_ON_CONCURRENT_ABSTRACTION" />
     </Match>
     <Match>
-        <Bug pattern="UG_SYNC_SET_UNSYNC_GET"/>
+        <Bug pattern="DC_PARTIALLY_CONSTRUCTED" />
     </Match>
     <Match>
-        <Bug pattern="VO_VOLATILE_INCREMENT"/>
+        <Bug pattern="DL_SYNCHRONIZATION_ON_BOOLEAN" />
     </Match>
     <Match>
-        <Bug code="RV"/>
+        <Bug pattern="DL_SYNCHRONIZATION_ON_BOXED_PRIMITIVE" />
+    </Match>
+    <Match>
+        <Bug pattern="DL_SYNCHRONIZATION_ON_INTERNED_STRING" />
+    </Match>
+    <Match>
+        <Bug pattern="DL_SYNCHRONIZATION_ON_SHARED_CONSTANT" />
+    </Match>
+    <Match>
+        <Bug pattern="DL_SYNCHRONIZATION_ON_UNSHARED_BOXED_PRIMITIVE" />
+    </Match>
+    <Match>
+        <Bug pattern="DMI_BLOCKING_METHODS_ON_URL" />
+    </Match>
+    <Match>
+        <Bug pattern="DMI_FUTILE_ATTEMPT_TO_CHANGE_MAXPOOL_SIZE_OF_SCHEDULED_THREAD_POOL_EXECUTOR" />
+    </Match>
+    <Match>
+        <Bug pattern="DMI_SCHEDULED_THREAD_POOL_EXECUTOR_WITH_ZERO_CORE_THREADS" />
+    </Match>
+    <Match>
+        <Bug pattern="DMI_THREAD_PASSED_WHERE_RUNNABLE_EXPECTED" />
+    </Match>
+    <Match>
+        <Bug pattern="DMI_USING_REMOVEALL_TO_CLEAR_COLLECTION" />
+    </Match>
+    <Match>
+        <Bug pattern="DM_MONITOR_WAIT_ON_CONDITION" />
+    </Match>
+    <Match>
+        <Bug pattern="DM_USELESS_THREAD" />
+    </Match>
+    <Match>
+        <Bug pattern="ESync_EMPTY_SYNC" />
+    </Match>
+    <Match>
+        <Bug pattern="FI_EXPLICIT_INVOCATION" />
+    </Match>
+    <Match>
+        <Bug pattern="HSC_HUGE_SHARED_STRING_CONSTANT" />
+    </Match>
+    <Match>
+        <Bug pattern="IJU_ASSERT_METHOD_INVOKED_FROM_RUN_METHOD" />
+    </Match>
+    <Match>
+        <Bug pattern="IS2_INCONSISTENT_SYNC" />
+    </Match>
+    <Match>
+        <Bug pattern="IS_FIELD_NOT_GUARDED" />
+    </Match>
+    <Match>
+        <Bug pattern="JCIP_FIELD_ISNT_FINAL_IN_IMMUTABLE_CLASS" />
+    </Match>
+    <Match>
+        <Bug pattern="JLM_JSR166_LOCK_MONITORENTER" />
+    </Match>
+    <Match>
+        <Bug pattern="JLM_JSR166_UTILCONCURRENT_MONITORENTER" />
+    </Match>
+    <Match>
+        <Bug pattern="JML_JSR166_CALLING_WAIT_RATHER_THAN_AWAIT" />
+    </Match>
+    <Match>
+        <Bug pattern="LI_LAZY_INIT_STATIC" />
+    </Match>
+    <Match>
+        <Bug pattern="LI_LAZY_INIT_UPDATE_STATIC" />
+    </Match>
+    <Match>
+        <Bug pattern="ML_SYNC_ON_FIELD_TO_GUARD_CHANGING_THAT_FIELD" />
+    </Match>
+    <Match>
+        <Bug pattern="ML_SYNC_ON_UPDATED_FIELD" />
+    </Match>
+    <Match>
+        <Bug pattern="MSF_MUTABLE_SERVLET_FIELD" />
+    </Match>
+    <Match>
+        <Bug pattern="MTIA_SUSPECT_SERVLET_INSTANCE_FIELD" />
+    </Match>
+    <Match>
+        <Bug pattern="MTIA_SUSPECT_STRUTS_INSTANCE_FIELD" />
+    </Match>
+    <Match>
+        <Bug pattern="MWN_MISMATCHED_NOTIFY" />
+    </Match>
+    <Match>
+        <Bug pattern="MWN_MISMATCHED_WAIT" />
+    </Match>
+    <Match>
+        <Bug pattern="NN_NAKED_NOTIFY" />
+    </Match>
+    <Match>
+        <Bug pattern="NO_NOTIFY_NOT_NOTIFYALL" />
+    </Match>
+    <Match>
+        <Bug pattern="NP_SYNC_AND_NULL_CHECK_FIELD" />
+    </Match>
+    <Match>
+        <Bug pattern="PS_PUBLIC_SEMAPHORES" />
+    </Match>
+    <Match>
+        <Bug pattern="RS_READOBJECT_SYNC" />
+    </Match>
+    <Match>
+        <Bug pattern="RU_INVOKE_RUN" />
+    </Match>
+    <Match>
+        <Bug pattern="RV_RETURN_VALUE_OF_PUTIFABSENT_IGNORED" />
+    </Match>
+    <Match>
+        <Bug pattern="SC_START_IN_CTOR" />
+    </Match>
+    <Match>
+        <Bug pattern="SE_PREVENT_EXT_OBJ_OVERWRITE" />
+    </Match>
+    <Match>
+        <Bug pattern="SIC_THREADLOCAL_DEADLY_EMBRACE" />
+    </Match>
+    <Match>
+        <Bug pattern="SP_SPIN_ON_FIELD" />
+    </Match>
+    <Match>
+        <Bug pattern="SSD_DO_NOT_USE_INSTANCE_LOCK_ON_SHARED_STATIC_DATA" />
+    </Match>
+    <Match>
+        <Bug pattern="STCAL_INVOKE_ON_STATIC_CALENDAR_INSTANCE" />
+    </Match>
+    <Match>
+        <Bug pattern="STCAL_INVOKE_ON_STATIC_DATE_FORMAT_INSTANCE" />
+    </Match>
+    <Match>
+        <Bug pattern="STCAL_STATIC_CALENDAR_INSTANCE" />
+    </Match>
+    <Match>
+        <Bug pattern="STCAL_STATIC_SIMPLE_DATE_FORMAT_INSTANCE" />
+    </Match>
+    <Match>
+        <Bug pattern="STI_INTERRUPTED_ON_CURRENTTHREAD" />
+    </Match>
+    <Match>
+        <Bug pattern="STI_INTERRUPTED_ON_UNKNOWNTHREAD" />
+    </Match>
+    <Match>
+        <Bug pattern="SWL_SLEEP_WITH_LOCK_HELD" />
+    </Match>
+    <Match>
+        <Bug pattern="SW_SWING_METHODS_INVOKED_IN_SWING_THREAD" />
+    </Match>
+    <Match>
+        <Bug pattern="TLW_TWO_LOCK_WAIT" />
+    </Match>
+    <Match>
+        <Bug pattern="UG_SYNC_SET_UNSYNC_GET" />
+    </Match>
+    <Match>
+        <Bug pattern="UL_UNRELEASED_LOCK" />
+    </Match>
+    <Match>
+        <Bug pattern="UL_UNRELEASED_LOCK_EXCEPTION_PATH" />
+    </Match>
+    <Match>
+        <Bug pattern="UW_UNCOND_WAIT" />
+    </Match>
+    <Match>
+        <Bug pattern="VO_VOLATILE_INCREMENT" />
+    </Match>
+    <Match>
+        <Bug pattern="VO_VOLATILE_REFERENCE_TO_ARRAY" />
+    </Match>
+    <Match>
+        <Bug pattern="WA_AWAIT_NOT_IN_LOOP" />
+    </Match>
+    <Match>
+        <Bug pattern="WA_NOT_IN_LOOP" />
+    </Match>
+    <Match>
+        <Bug pattern="WL_USING_GETCLASS_RATHER_THAN_CLASS_LITERAL" />
+    </Match>
+    <Match>
+        <Bug pattern="WS_WRITEOBJECT_SYNC" />
     </Match>
 </FindBugsFilter>
